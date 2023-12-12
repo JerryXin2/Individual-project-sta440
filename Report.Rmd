@@ -1,0 +1,240 @@
+---
+title: An introduction into Statistical Theory Methods related to Systematic Equity
+  Futures Statistical Arbitrage
+author: "Jerry Xin"
+date: "2023-12-12"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Introduction
+
+### Background
+
+To many, trading stocks, futures, and options in Financial Markets seems like a task that is completely based on luck, and is simply a test of one's intuition. Eugene Fama famously hypothesized in his paper “Efficient Capital Markets: a Review of Theory and Empirical Work" that markets are information efficient, which means that all future events and predictions are "priced in" to the current price. That is, it is almost impossible for one to trade favorably in the market, since all information is well known by other traders (Cochrane 2023). However, whether you believe the efficient market hypothesis or not, there are still multitudes of statistical methods used to analyze the market. Financial data is well known to be some of the most noisy, complex, and large in quantity data out there. Many independent trading firms have used these since the 1970s and even still today. These statistical and mathematical methods are really statistical in nature. That is, we care about approximating and efficiency in our methods. After all, a method that takes 1 week to process will never be useful since the stock price will already be long gone from what it was a week ago. Of course, one cannot predict major market catastrophes, such as the COVID-19 pandemic or the 2007 recession, and so methods most of the time try to minimize risk, but not reduce it to 0, and have a slight edge in 99% of market scenarios. 
+
+To understand how stock prices generally move, we need to go over some background. Stocks generally trade during trading hours and after hours, and have different prices over different times, driven primarily by the supply and demand of the stock. Supply and demand can be driven by hundreds, even thousands of predictors, and is very hard to model. The data is of the nature of a time series data, as for each point in time, there is a price associated with it for a specific stock. Instead of analyzing the data through the "eye test" or intuition, we can introduce statistical concepts to help use analyze the data in a methodological and efficient manner.
+
+The simplest statistical concept used in markets is the moving average. The moving average, over a period of 5 days to 10 days, allows us to look at the larger trends in the movements of a stock price without the noise or meaningless variance of the stock. A simple stock trader might understand how to use a moving average to look at a stock, but an experienced trader might look at multiple moving averages over different timeframes, periods of stocks, different statistics, and even other stocks highly correlated with the target stock.
+
+### Research Objective
+
+This study aims to analyze financial data for large cap stocks and to discuss how to statistically determine if it is possible to trade 2 equity futures using the Pairs Trading Algorithm and mean reversion. It will offer a comprehensive and customizable approach that analyzes different statistical concepts and statistical tests within a typical Pairs Trading Algorithm methodology. Our goal is to predict whether it is possible to trade 2 stocks within our dataset using a Pairs Trading mean reversion strategy, and why it is or is not recommended.
+
+### Dataset Overview
+The data is taken from major domestic and international competitions worldwide. We were provided two datasets, one from the competitions leading up to the Tokyo Games in 2020 (2017 to 2021), and one from the competitions leading up to the Paris Games in 2024 (2022 to 2023). We only used the 2022 to 2023 data, as the competition format changed between 2021 and 2022.
+
+The data consists of competition results from many gymnasts from all different countries. Our categorical variables are FirstName and LastName, for the first and last names of the competitors, gender, country (of the competitor), date (date range of the competition), competition, round (either qualifier or final), location, and apparatus. Our numerical variables include rank (place in competition), D Score (Difficulty Score), E Score (Execution Score), Penalty, and Score. It is important to note that Score is simply the combination of D Score + E Score - Penalty. 
+
+The global data had 23,891 observations, and the dataset, when filtered for the USA only, had 3,362 observations. There were 12 features given in the dataset.
+
+### Exploratory Data Analysis: Score distributions & top USA candidates
+Our primary takeaways from our EDA (appendix A) were that the distribution of scores for each apparatus for men and women in the USA, as well as worldwide, was roughly normal, with somewhat of a left skew and moderately fat tails. First, this implies that there are some under performers we should simply filter out for certain events. We do this by sampling form the top 24 athletes to create our predicted medal threshold. Next, this implies that for each athlete, the distribution of their performance can be approximated by a t-distribution. This in turn inspired us to simulate drawing from a t-distribution, and then comparing these draws with our predicted medal threshold. This threshold was derived from also sampling from a t-distribution in order to simulate each athlete's chance of medaling. This will account for the individual variance of an athlete on a specific apparatus. 
+
+If our goal is to put forth the best lineup to maximize medal count, we need to look into who the top US candidates are in each apparatus and all-around. Here, we graph dot plots of the top three US gymnasts in each event across all the events, using the mean score from their 2022-2023 data.  
+
+```{r, echo=FALSE, results = FALSE, warning= FALSE, message=FALSE}
+library(readr)
+library(tidyverse)
+library(dplyr)
+library(stringr)
+library(lubridate)
+library(knitr)
+library(yfR)
+```
+
+```{r}
+today <- as.Date("2023-12-12")
+months_prior <- today - (365*5)
+yf_get_available_collections(print_description = FALSE)
+df <- yf_collection_get("DOW", first_date = months_prior, last_date = today)
+tick <- c("AAPL", "CRM", "CSCO", "IBM", "MSFT")
+filtered_df <- df %>%
+  filter(ticker == tick)
+reshaped_data <- pivot_wider(filtered_df, names_from = "ticker", values_from = "price_close")
+reshaped_data <- reshaped_data[, (ncol(reshaped_data) - 4):ncol(reshaped_data)]
+
+date_column <- seq(as.Date("2023-01-01"), by = "1 day", length.out = 252)
+consolidated_data <- data.frame(Date = date_column)
+
+# Loop over each column
+# for (col in colnames(reshaped_data)) {
+#   # Remove NAs from the current column
+#   current_column <- reshaped_data[, col]
+#   print(current_column)
+#   non_na_values <- na.omit(current_column)
+#   print(non_na_values)
+#   
+#   # Add the non-NA values to the consolidated data frame
+#   consolidated_data <- cbind(consolidated_data, non_na_values)
+# }
+
+```
+
+```{r}
+# Load necessary library for coint function
+# library(urca)
+# 
+# find_cointegrated_pairs <- function(data) {
+#   n <- ncol(data)
+#   score_matrix <- matrix(0, nrow = n, ncol = n)
+#   pvalue_matrix <- matrix(1, nrow = n, ncol = n)
+#   keys <- colnames(data)
+#   pairs <- list()
+# 
+#   for (i in 1:(n - 1)) {
+#     for (j in (i + 1):n) {
+#       S1 <- data[, i]
+#       S2 <- data[, j]
+#       result <- cointegration.test(S1, S2)
+#       score <- result$statistic
+#       pvalue <- result$p.value
+#       score_matrix[i, j] <- score
+#       pvalue_matrix[i, j] <- pvalue
+#       if (pvalue < 0.05) {
+#         pairs <- c(pairs, list(c(keys[i], keys[j])))
+#       }
+#     }
+#   }
+# 
+#   return(list(score_matrix = score_matrix, pvalue_matrix = pvalue_matrix, pairs = pairs))
+# }
+# 
+# # Example usage
+# # Assuming your data is stored in a data frame named 'your_data'
+# result <- find_cointegrated_pairs(filtered_df$price_close)
+# print(result$score_matrix)
+# print(result$pvalue_matrix)
+# print(result$pairs)
+
+```
+
+
+```{r}
+unique(df$ticker)
+```
+
+
+
+
+To clarify why some athletes appear but don't have score dots in an apparatus, that athlete was in the top 3 for another apparatus but not this current one. We keep them in just to show the "depth" of US gymnastics. A small number of total athletes that appear in the top 3 across all apparatus signals that most elite athletes are great at more than 1 event. 
+
+Taking a glance at the top US women, we can see that Simone Biles by far and away is the best American gymnast. That is quite unsurprising, given that she has the most gymnastics medals in the world and has consistently performed at an elite level in all events since her return to the sport. We can almost lock her in to make the Paris 2024 roster. Shilese Jones is the only gymnast have a higher mean score in an apparatus than Simone, specifically in the uneven bars (UB). She is someone to keep an eye out for, especially considering her recent all-around Bronze medal in the World Championships in October 2023. There are only six women to place in the top three across four apparatuses, a telling sign that the US women's team selections for Paris 2024 might be top heavy. 
+
+
+The US mens data is not quite as clear cut. There are a total of 11 American gymnasts who place in the top three of at least one of the six events. Asher Hong, Khoi Young, and Yul Moldauer place in the top three for three out of the events. Additionally, Brody Malone places in the top five for four out of six events, and Fred Richard most recently won bronze in the 2023 World Championships in the all round. Those are athletes we might expect to be placed into our USA mens team. 
+
+Our EDA is important as it allows us to sanity check our decision making, and will provide a sturdy foundation to any USA team lineups. 
+
+## Methodology
+
+### Breakdown of All Round + Specialists
+
+Treating this as an optimization problem where we are maximizing for total medal count, we have developed nuanced heuristics based off analyzing past Olympic gymnastic event results to pick our top five-person lineups. Historically, we've seen that the USA, along with most other participating countries, send a combination of all-round gymnasts and event specialists in a five person lineup. Specifically, the USA Olympic Team Selection Procedure outlines that the top two overall all-round gymnasts will automatically qualify for the squad and then the committee will select the other three to complement them. As discussed previously, a team can qualify a maximum of two individual gymnasts for each apparatus final as well as the all-around final. By this logic, it makes the most sense to send two all-around participants, while then having three specialists that would give that country the best shot at medaling in each individual apparatus. We wanted to mimic this approach, leading us to implement a two-tiered approach in our team selection process. First, we choose the top two overall all-round gymnasts and then we select three more gymnasts to round out the team in an attempt to maximize total medal count. 
+
+### Selection Method 
+In selecting the two all-round gymnasts, we will choose the two candidates that have the simulated highest total score average across all the events they have participated in leading up to the 2024 Olympics. Specifically, we weighted each score by artificially determining its importance by how recent it was and the “stage” of the competition in which it took place. We averaged the weighted scores across all the events a US gymnast has participated in. We then sum the average weighted scores in each apparatus to find a composite all-around score. 
+
+### Clutch Factor and Recency Considerations
+We chose to put weights on competition date and competition stage, specifically, because we believe a heavier weight should be placed on performances that take place under pressure in the final round and are more recent. This weighting is our attempt to measure the "clutch" factor and peak/prime performance of an individual athlete. The way our weights will work is we will duplicate rows of individual scores in the dataset given the assigned weight of that score. Competition date will be split into three categories by how recent the competition was: very recent (< 6 months), somewhat recent (6 - 18 months), not recent (18+ months). A multiplier of 1 will be given to not recent competitions, a multiplier of 2 to somewhat recent competitions and a multiplier of 3 for very recent competitions. As for the competition stage, there are two stages of competition: qualifiers and finals. Qualifying round scores will receive a multiplier of 1 and final round scores will receive a multiplier of 2. For example, a row containing a score from a not recent competition and qualifying round will remain as one singular row. However, a row containing a qualifying round score, but from very recent, will be multiplied three times to get three rows containing that score. If that score was instead from the finals, it would be multiplied 2 x 3 = 6 times. 
+
+Taking the average of an individual athlete's scores after this duplication process will give us a mean expected score on each apparatus for that athlete. Still, we are aware that each gymnast will have variance in their scores for each apparatus and we wanted to take that into account. For each USA gymnast, we will also develop an individual total score distribution from their weighted scores to account for the variance for each individual on each apparatus. A density plot of all the scores after the duplication process will give us a distribution centered around the mean score for an athlete as well as a variance.
+
+### Obtaining Medaling Probabilities
+Because the main goal of analysis is to determine the probability that an individual athlete medals, we also had to determine a way to get medal probabilities. We will accomplish this goal by determining medal thresholds, or thresholds necessary to achieve a certain medal. This will first require us to get a distribution of scores on individual apparatuses. We do this by creating a T-distribution from the top 24 individuals’ weighted mean score. Of the 24 people, however, no more than 4 competitors from the same country will be included in this distribution as a maximum of 4 individuals from each country can compete in qualifying for individual apparatuses. From the EDA, we saw that the distribution of scores was roughly normal, with somewhat of a tail towards the left side of the distribution, and somewhat fat tails. This inspired us to take the top 24 people(the lower scoring competitors would be dropped), and from there create a T-distribution to sample from in our simulation, since we have normality and somewhat fat tails.
+
+In order to find an individual's probability of earning a medal we will use a two step simulation and sampling process. We will simulate the following process 1,000 times. We first will sample from the distribution of the top 24 individuals 24 times. The top three scores of the 24 will represent the medal cutoffs with the 3rd highest sample score corresponding to a Bronze medal, the 2nd highest sample score corresponding to a Silver medal cutoff, and the highest sample score corresponding to a Gold medal cutoff. Because we are only worried about the placing of gymnasts from the USA, we will sample once from each of the top 8 USA gymnasts in each individual apparatus given their unique distributions. If that gymnast’s sampled score surpasses one of the cutoffs they will have ‘earned’ that medal for the given simulation. For example, if when sampling from the 24 gymnasts distribution we get medal cutoffs of 14.5, 14.8, and 14.9 and gymnast A gets a sampled score of 14.6 they will “earn” a Bronze medal. A sampled score of 14.81 would “earn” a Silver medal and a sampled score of 14.91 would “earn” a Gold medal. The only caveat is if multiple American gymnasts fall within the threshold for a certain medal. In that case the gymnasts would be ordered and the top score earns that medal and the next highest score would earn the next highest medal if it is available. We again simulate this two-tiered sampling approach 1,000 times to get each individual gymnast’s probability of getting a specific medal in a specific apparatus. We will use this approach for the individual all-around as well, and the two men and two women with the highest medal probabilities will be automatically selected for our team. The assumptions for our simulation require an adequate amount of repeating sampling. 1000 is surely enough for each athlete, who on average has 10-20 observations. We also assume that past performance is somewhat indicative of future performance.
+
+### Optimization
+From there we will use optimization to determine the 5-person lineup that maximizes expected medals earned including the team all-around medal. In determining the team all-around medal we will use a system identical to the way the Olympics will work in 2024. We will use many permutations of 3 specialists along with our two guaranteed all-around gymnasts and sample from every gymnast's individual distributions to get all-around scores. For each apparatus, the top three US gymnasts on the teams distributions will be sampled from (because only the top 3 gymnasts participate in the team all-around finals). The scores will be aggregated to get a total team all-around score. The same method of medal cutoffs will be used in the team all-around medal cutoffs, but using empirical team all-around score data to create a distribution to be sampled from. The 5-person team that maximizes total medals earned will be the team we recommend the USA send to Paris for the 2024 Olympics.
+
+
+## Results 
+
+Our Results are compiled in the table below, with predicted individual medals. We used predicted total individual apparatus medals to select our teams, and categorized each competitor as either All Around or Specialist:
+
+```{r, echo=FALSE}
+results <- data.frame(
+  Category = c("All Around", "All Around", "Specialist", "Specialist", "Specialist", "Total Exp. Medals"),
+  USA_Women = c( "Simone Biles", "Shilese Jones", "Kaliya Lincoln", "Jade Carey", "Zoe Miller", ""),
+  EMC_Women = c('3.409', '0.466', '0.439','0.190','0.061','4.565'),
+  USA_Men = c("Paul Juda", "Fred Richard", "Donnell Whittenburg", "Khoi Young", "Curran Phillips", ""),
+  EMC_Men = c('0.663', '0.491', '0.264', '0.564', '0.310',"2.402")
+)
+kable(results, caption = "Proposed Paris 2024 USA Gymastics Team, with Expected Medal Counts (EMC)")
+```
+
+To maximize for total medal count at the Paris 2024 Olympics, the USA Gymnastics team should select Simone Biles, Skye Blakely, Shilese Jones, Jade Carey, and Zoe Miller for the women’s team, and Fred Richard, Paul Juda, Donnell Whittenburg, Khoi Young, and Curran Phillips for the men’s team. Our total predicted medal counts are 4.565 individual medals for women, and 2.402 for the men’s team.
+
+Biles and Jones are the clear all-round selection, expecting to contribute 3.409 and 0.466 medals in total respectively, and having 99.9% and 23.9% to medal in the individual all-around finals. Onto the three specialists, Carey is an outstanding performer in Vault and Floor Exercise, having 19.0% and 19.9% to medal in those apparatus. Lincoln has 43.9% chance medaling in Floor Exercise. Miller is our last selection, and she brings value in the Uneven Bars, having a 6.1% percent of medaling there. 
+
+Juda and Richard were the all-round selections on the men's side. They have the highest chances of medaling in our individual all-round, with 5.1% and 4.9% respectively. The first specialist we choose was Khoi Young for his ability in vault and pommel horse, having 44.9% and 11.5% of medaling respectively. Then we choose veteran Whittenburg for his consistency on the still rings (SR), having the highest percentage chance to help the US medal in that apparatus with 26.4%. Lastly, we went with Curran Phillips for parallel bars as he had 26.3% to medal there.
+
+Information on the percentages chances of medaling for each athlete can be in found in Appendix B. 
+
+## Discussion
+
+### Goals, Eye-test, Outside Research
+Our goal was to recommend a team of 5 women and 5 men for the Olympic Games in Paris 2024, with an expected medal count for each team. We accomplished our goal of selecting athletes by first selecting 2 all-around athletes, and then finding 3 specialists to complement them, while adjusting for 'clutch' factor and recency by duplicating observations based on final vs qualifying rounds, and recency of competition. We then account for individual variance by creating a T-distribution for each competitor for each apparatus, and sampling from that distribution 1000 times. We also then find the predicted medal thresholds using repeated sampling from a T-distribution, taking the top 24 individual scorers, and compare our sampled individual results with the predicted thresholds to find predicted individual medal counts.
+
+The ‘eye’ test confirms some of the choices made by our model. The choices of Simone Biles, Skye Blakely, Shilese Jones align with the choices of the US team in the most recent World Championships where the US women won a gold medal. Both Jones and Biles also medaled in the individual all-around event justifying them being chosen as the two guaranteed all-around competitors. Furthermore, an independent level 10 gymnast committed to a D1 university chose a team identical to that of the US women’s world championship squad leading us to believe the eye test gives ground for our choices. On the men’s side the model’s choices do align with the US men’s team that won bronze in the most recent World Championship. Paul Juda, Fred Richard, and Khoi Young are both on our suggested Olympic team and the 2023 World Championship team. Hong and Richard were the selected all-around competitors also justifying our model’s choices. 
+
+Still, there is important information that the USA Olympic committee as well as some of the general public have that our model does not. For example, Konnor McClain may look like a strong choice, but she left Elite (which is a program designed to be a pathway to the USA national team) in 2023 in favor of college. Although she plans to continue training for the Olympics, her non-Elite status likely keeps her from being in the USA olympic committee’s player pool. A similar situation exists for Sunisa Lee, the 2020 Olympic all-around champion. Although her weighted scores are quite high and the model would select her as one of the all-around locks, she has not competed Elite since her enrollment in college in 2022 and a recent injury in which she gained over 50 pounds likely keeps her from making the USA national team. Injury concerns will also keep Brody Malone off the team on the men’s side. Although he eyes a spring 2024 comeback from a knee injury suffered in the spring of 2023, he will likely not be ready or in form for the Olympics. 
+
+### A Qualitative Analysis of Team USA
+
+A qualitative analysis of Team USA’s women’s gymnastics team has determined that Team USA will most likely pick from a pool of 7 women to choose their team. Only 7 women placed in the top three at any event in the most recent USA national gymnastics championships. These 7 women are Simone Biles, Shilese Jones, Leanne Wong, Skye Blakely, Kaliya Lincoln, Joscelyn Roberson, and Jade Carey. The two all-around staples are likely to be Simone Biles and Shilese Jones as both placed first and second in the USA championships as well as were the top 2 USA finishers in the World Championships. Leanne Wong has a case for being an all-around competitor, but in both championships she finished behind Biles and Jones. 
+
+As for the specialists there is support for Leanne Wong being a third all-around athlete as that was the way the USA utilized her in the World Championships. However, she did not qualify for any individual final so her utilization as such an athlete in the Olympics may not be the most optimal strategy. If we choose three specialists, Skye Blakely is a lock to be a specialist. Not only did she place second in the vault, uneven bars, and balance beam, but she is far and away the USA’s third best uneven bars athlete along with Biles and Jones. Beyond these three athletes, the biggest hole lies in the Vault and Floor Exercise events. Of the three athletes remaining only Kaliya Lincoln fills the gap in the floor exercise as she not only silver medaled at the national championships but also won gold at the Pan-American games. Kayla DiCello is another option at Vault for the USA. While not as strong as Lincoln, if the USA is looking for another all-around gymnast for added depth, Dicello provides just that, not to mention her second place finish in floor at the Pan-American games. Still, Kaliya Lincoln’s floor abilities would make her a good fourth addition. That leaves Joscelyn Roberson and Jade Carey who are the two best options for the Vault. Given her recent form, Joscelyn Roberson has a slight edge over Jade Carey. Roberson won gold at the National Championships and had a good chance to medal at the World Championships before tweaking her left leg before the finals (which also prevented her from competing in the team all-around final). 
+
+All in all, a qualitative analysis would suggest a five-woman team of Simone Biles, Shilese Jones, Skye Blakely, Kaliya Lincoln, and Joscelyn Roberson. Alternative lineups would feature either Kayla Dicello over Kaliya Lincoln or Jade Carey over Joscelyn Roberson.
+
+A qualitative analysis for the Men’s Olympic team is much less clear. Frederick Richard would be a lock for the team. His bronze medal at the World Championships in the individual all-around while also topping the USA in all-around score in qualifying cements his spot as our top all-around athlete. The second spot would go to either Asher Hong or Khoi Young. Because Asher Hong won the National Championship and was chosen above Young in the World Championships the edge goes to him. 
+
+Hong and Richard are both skillful at 4 of the 6 events, but neither covers the base of horizontal bar, so selecting an athlete for that event is important. The best option for this event is Paul Juda who made it to the horizontal bar finals round at the World Championships. Juda has also shown high levels of success in the floor exercise (won the National Championship) and the vault (made the World Championship final) making him an ideal third choice for the Olympic team. Khoi Young is the next best option to make the team. Not only did he place second in the individual all-around at the National Championships exemplifying his strength at all events, but he also got a silver medal in both the vault and pommel horse at the World Championships. Given the results of the National Championships two men are in consideration for the final spot: Donnell Whittenberg and Yul Moldauer. Both placed first in an event at the National Championships and third in another event. The slight edge, however, goes to Whittenberg who placed first in the rings, the only event in which the USA did not send a single athlete to the finals of the World championships, at the National Championships. While Moldauer has Olympic experience, Wittenberg’s expertise in the rings gives him a slight edge. 
+
+That gives a final five-man team of Frederick Richard, Asher Hong, Paul Juda, Khoi Young, and Donnell Whittenberg.
+
+
+
+
+### Limitations
+There were also several limitations in our statistical methods. Firstly, we arbitrarily assigned weights to each of the decided ‘cutoffs’ it is more than possible that our weightings could result in the selection of a different team than if no weights were used. However, the weights used were for good reason given how recent performance affects future performance and our desire to pick more ‘clutch’ individuals. Another potential limitation in our method is when determining projected scores for athletes that have not competed in some time. Take Sunisa Lee as an example. Due to competing in college and injuries, Lee has very few scores since her Olympic performance in 2021. Because those performances account for so many of her competitions, her lower recent scores are severely overshadowed by her high, older scores. Even with weights her older scores account for a much greater proportion of her data. Thus in our methodology her projected score is unreasonably high for what recent scores suggest. This could remain true for many other athletes where their projected score does not resemble what their recent form might be. The final issue with our methodology and sampling in general is because there is technically no maximum score a gymnast could receive due to more challenging tricks being completed in every successive competition the sample could possibly get too high scores as there is no maximum cutoff in the distributions.
+
+Some alternatives for methodology could include using a Kernal Density Estimation method to estimate the distribution, and then sampling, or obtaining all possible combinations of 5 athletes and then running an olympics simulation. We could also introduce more factors to weighting such as the age of the competitor, skill level of the competition, etc. For future work, and potentially in the final draft, we could also include a sensitivity analysis on our weights, since they were selected somewhat arbitrarily. We plan in the future to find the predicted total medal counts, which include individual all around, individual specialist, and team medals. We did not include the team medals in our predicted medal counts, but also because team medals are calculated through individual performances, optimizing for the best individual performances would necessarily optimize for the best team medal percentage. 
+
+### The future of gymnastics: gymnast player grades, flexible optimization criterion, and rising stars
+
+As the Olympics has become synonymous with national pride, success in Olympic gymnastics is vital to maintaining a sense of American pride. Given the high expectations laid out for the USA due to past success in the Olympics and as other countries have become more competitive on the gymnastics scene, it has become evermore important to select the team that gives the USA the best chance at being successful in Paris 2024. 
+
+The statistical analysis done in this paper gives one-of-many statistical ways to determine that “best” team to optimize for total medal count. Our nuanced two-tier approach provides the USA Olympic committee with tangible percentages and reasonable estimates for a candidate’s estimated medal contribution, and a percentage chance to medal in a specific apparatus. Using our methodology, others might be able to further optimize for things such as team medal or overall total scores given the chance to run more simulations or adding additional data. Another use case would be replicating this for many countries, and compiling an elite database with “player grades” of sorts attached to Olympic performance. As more advanced data is measured and the intersection between sports and data analytics continue to grow, our methods and data can create a competitive advantage over the rest of the field. 
+
+The potential for future research is endless. Our next step would be looking into optimizing lineups based on different criteria. That is, if a person wants to put a higher weighting on having the most consistent gymnasts or on the gymnast with highest potential than the model would be able to put out a lineup based on that criteria. Building out something more interactive for a final product is in the works. We will also look into more data related to the Olympics and gymnastics, and maybe interview a couple of professional gymnasts or their coaches to get further insight into Olympics level gymnastics. Finally, in the future we hope to build off similar tools to the ones created during this data analysis to predict or scout rising stars competing on the USA Elite pathway to keep an eye on for future Olympic cycles.
+
+## Appendix A
+
+\newpage
+### Works Cited
+Cochrane, John H. “Eugene F. Fama, Efficient Markets, and The Nobel Prize.” The University of Chicago Booth School of Business, www.chicagobooth.edu/review/eugene-fama-efficient-markets-and-the-nobel-prize#:~:text=In%201970%2C%20in%20%E2%80%9CEfficient%20Capital,available%20information%20about%20future%20values. Accessed 11 Dec. 2023. 
+
+
+Duffy, P. Konnor McClain enrolling at LSU this fall with hopes of balancing NCAA and elite - Gymnastics Now. Gymnastics-Now.com. 13 Jul. 2023. https://gymnastics-now.com/konnor-mcclain-enrolling-at-lsu-this-fall-with-hopes-of-balancing-ncaa-and-elite/. Accessed 20 Nov. 2023.
+
+Gunston, Jo. “Judging the Judges – How Statistical Analysis Evaluates Fairness And ...” Olympics.Com, 19 Oct. 2023, olympics.com/en/news/how-statistical-analysis-evaluates-fairness-accuracy-gymnastics. Accessed 06 Nov. 2023.
+
+
+Most popular sports in the Summer Olympics US 2021. (n.d.). Statista. https://www.statista.com/statistics/1245746/summer-olympics-most-followed-sports-us/. Accessed 20 Nov. 2023.
+
+
+Olympic Summer Games: global broadcast audience. (n.d.). Statista. https://www.statista.com/statistics/280502/total-number-of-tv-viewers-of-olympic-summer-games-worldwide/#:~:text=Between%202012%20and%202020%2C%20the,3.2%20billion%20five%20years%20earlier. Accessed 20 Nov. 2023.
+
+
+Olympic champ Sunisa Lee gained 45 pounds due to kidney issue. “It was so scary.” 17 Nov. 2023. USA TODAY. https://www.usatoday.com/story/sports/olympics/2023/11/17/sunisa-lee-olympic-champion-kidney-health-paris/71616483007/. Accessed 20 Nov. 2023.
+
+
+Tracy, Jeff. “Poll: Gymnastics Is Americans’ Most Highly Anticipated Olympic Sport.” Axios, Morning Consult, 19 July 2021, www.axios.com/2021/07/19/olympics-favorite-sport-gymnastics. Accessed 04 Dec. 2023. 
