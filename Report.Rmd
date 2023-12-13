@@ -27,53 +27,364 @@ The simplest statistical concept used in markets is the moving average. The movi
 This study aims to analyze financial data for large cap stocks and to discuss how to statistically determine if it is possible to trade 2 equity futures using the Pairs Trading Algorithm and mean reversion. It will offer a comprehensive and customizable approach that analyzes different statistical concepts and statistical tests within a typical Pairs Trading Algorithm methodology. Our goal is to predict whether it is possible to trade 2 stocks within our dataset using a Pairs Trading mean reversion strategy, and why it is or is not recommended.
 
 ### Dataset Overview
-The data is taken from major domestic and international competitions worldwide. We were provided two datasets, one from the competitions leading up to the Tokyo Games in 2020 (2017 to 2021), and one from the competitions leading up to the Paris Games in 2024 (2022 to 2023). We only used the 2022 to 2023 data, as the competition format changed between 2021 and 2022.
+The data is taken from Yahoo and looks at stock data from December 12th, 2021 to December 12th, 2023, within a 2 year period. We look at the backward adjusted prices, since we need to account for inflation. When sampling data for a specific stock, one can specify the timeframe and the symbol of the stock. We can also extract information for ETFs, or exchange traded funds, which are combinations of stocks. Stock data is time series data, and has 1 observation for each trading day, which includes most weekdays but not holidays. The stock data includes the open price, high price, low price, close price, volume price, and adjusted price for the stock for each observation on a trading day. For each stock, because we are looking at data from December 12th 2021 to December 12th 2023, this will result in 502 observations per stock, where each observation is one trading day.
 
-The data consists of competition results from many gymnasts from all different countries. Our categorical variables are FirstName and LastName, for the first and last names of the competitors, gender, country (of the competitor), date (date range of the competition), competition, round (either qualifier or final), location, and apparatus. Our numerical variables include rank (place in competition), D Score (Difficulty Score), E Score (Execution Score), Penalty, and Score. It is important to note that Score is simply the combination of D Score + E Score - Penalty. 
+Keep in mind that we are not limited to the stocks that we select for the case study. In fact, we are encouraged to actively explore new combinations of ETFs, stocks, and other derivatives to find an optimal combination that you are okay with trading and holding as assets.
 
-The global data had 23,891 observations, and the dataset, when filtered for the USA only, had 3,362 observations. There were 12 features given in the dataset.
+### Exploratory Data Analysis: Dow Jones Industrial Average Sectors
+Our exploratory data analysis starts by looking at the Dow Jones Industrial Average and looking at the top five companies that make up each sector in the Dow Jones. From there we applied the adjusted prices of each of the top five stocks in each sector over time for our two-year period. Looking at the top five stocks for each sector, we wanted to find sectors that were very correlated in movement with the top five stocks. This is through the eye test by looking to see if the stock patterns over the last 2 years look somewhat similar within upward moves lower moves and in general variability.
 
-### Exploratory Data Analysis: Score distributions & top USA candidates
-Our primary takeaways from our EDA (appendix A) were that the distribution of scores for each apparatus for men and women in the USA, as well as worldwide, was roughly normal, with somewhat of a left skew and moderately fat tails. First, this implies that there are some under performers we should simply filter out for certain events. We do this by sampling form the top 24 athletes to create our predicted medal threshold. Next, this implies that for each athlete, the distribution of their performance can be approximated by a t-distribution. This in turn inspired us to simulate drawing from a t-distribution, and then comparing these draws with our predicted medal threshold. This threshold was derived from also sampling from a t-distribution in order to simulate each athlete's chance of medaling. This will account for the individual variance of an athlete on a specific apparatus. 
+It's important that we take stocks that look to be very correlated with each other because we are trading these stocks against each other so if stocks within a certain industry are not correlated we will not do further analysis on these five stocks in a certain industry.It is also very important to note that using a foundational method such as the Dow Jones Industrial Average grouping of stocks into Industries is very important for pairs trading this is because we want stocks not just to be mathematically related but we also want some sort of casual or fundamental relationship between stocks are related. Thinking about statistically with the thousands of stocks that are out there they are bound to be too unrelated things such as a commodity and a random International stock that have the same price movement but we are very certain that these stocks will diverge in the future or they just happen to be by chance very very cointegrated in the time period that we are sampling for. 
 
-If our goal is to put forth the best lineup to maximize medal count, we need to look into who the top US candidates are in each apparatus and all-around. Here, we graph dot plots of the top three US gymnasts in each event across all the events, using the mean score from their 2022-2023 data.  
+The purpose of the EDA is twofold. First, we get a general understanding of industry sectors through the Dow Jones and certain ways on how to group stocks in specific baskets. Next, we also look at the top five stocks for each predefined industry sector and look for possible cointegration relationships between the top five stocks. We can therefore narrow down industries and corresponding stocks that we select for further analysis. 
+
+We show a graph of our Eda below it relates the stocks prices of Microsoft, Apple, Amazon, Google(GOOGL), Google(GOOG), and Meta in a graph over 2022 and 2023. The stock symbols we want to obtain are below.
 
 ```{r, echo=FALSE, results = FALSE, warning= FALSE, message=FALSE}
 library(readr)
 library(tidyverse)
+library(ggplot2)
 library(dplyr)
 library(stringr)
 library(lubridate)
 library(knitr)
 library(yfR)
+library(urca)
+library(quantmod)
+library(tseries)
+```
+
+```{r echo=FALSE, message=FALSE, warning= FALSE, results =FALSE, message=FALSE}
+# Define stock symbols
+stock_symbols <- c("MSFT", "AAPL", "AMZN", "GOOG", "GOOGL", "META")
+
+# Fetch stock data
+getSymbols(stock_symbols, from = "2021-12-12", to = "2023-12-12")
+
+# Extract closing prices
+closing_prices <- do.call(cbind, lapply(stock_symbols, function(symbol) Cl(get(symbol))))
+```
+```{r echo=FALSE, warning= FALSE}
+# Plot all stock prices on one plot
+matplot(index(closing_prices), closing_prices, type = "l", col = 1:length(stock_symbols),
+        lty = 1, xlab = "Date", ylab = "Stock Price", main = "Stock Prices IT Companies",
+        legend.text = stock_symbols, col.axis = "black", col.main = "black")
+
+# Add legend
+legend("topright", legend = stock_symbols, col = 1:length(stock_symbols), lty = 1)
+```
+
+
+## Methodology
+
+### Selection of Baskets of Stocks
+As explained in the Eda section we select baskets of stocks based on the predefined categories for Industries in the Dow Jones Industrial Average. From there we plotted the top five stocks by market cap in each industry sector, and looked at the graphs of price versus time to see if there was any correlation in movements of prices. This can be upswings, downswings and in general variation of price.
+
+### Stationarity
+One of the most fundamental concepts we need to verify is stationarity. The concept of stationarity in statistics is used very frequently in Time series analysis. The general assumption of stationarity is that the parameters of our data generating process do not change over time.
+
+Suppose our data is a stock that is increasing every year and we are not adjusting in the price based on inflation. Think of a line with slope 2. Because our data is not stationary, this means that certain statistics that would be meaningful for stationary data now cannot be consistently interpreted in a statistical manner, and assumptions are not met.
+
+To test for stationarity, we want to use the augmented Dicky Fuller test. We want to test for something called a unit root and want to use an auto regressive unit root test. If the p-value is less than our cutoff value at Alpha level 0.05, then we can assume this series is likely stationary and if the alpha value is greater than 0.05, we can assume that the series is non-stationary.
+
+### Cointegration
+
+Something equally important we want to test for is co-integration. This concept is very unfamiliar to many in the statistics field but a somewhat comparable concept is correlation. However, we argue here that we want to test for cointegration over correlation. Correlations between stocks and finance have been notoriously known to be unstable and are known to be bad measures of similarity in the long run.
+
+The co-integration test procedure consists of using something called the Johansen test for cointegrating time series analysis. The basic idea of this test is that you test for a unit root in each component series individually unit using unit tests and if this unit cannot be rejected the next step is to test go integration among the components. Other versions of tests for co-integration can include Engle-Granger or Phillips-Ouliaris.
+
+Correlation and co-integration, while they can be theoretically similar, are very different concepts. The graph below demonstrates thi, as it is a graph of two time series that diverge. If one were to calculate the correlation between these two time series, it would be around 0.99. However if one were to calculate the co-integration between these values p-value would be not significant at p = 0.26. This means that these 2 series are definitely correlated, but not co-integrated.
+
+```{r, echo=FALSE, results = FALSE, warning= FALSE, message=FALSE}
+set.seed(123)  # Setting seed for reproducibility
+X_returns <- rnorm(100, mean = 1, sd = 1)
+Y_returns <- rnorm(100, mean = 2, sd = 1)
+
+X_diverging <- cumsum(X_returns)
+Y_diverging <- cumsum(Y_returns)
+
+# Create a data frame
+diverging_data <- data.frame(X = X_diverging, Y = Y_diverging)
+
+ggplot(diverging_data, aes(x = seq_along(X), y = X, color = "X")) +
+  geom_line() +
+  geom_line(aes(y = Y, color = "Y")) +
+  xlim(0, 99) +
+  labs(title = "Diverging Time Series", x = "Time", y = "Cumulative Returns") +
+  theme_minimal()
+```
+
+### Putting it all together
+
+Putting it all together, our methodology for analyzing a basket of stocks for Systematic Equity Statistical Arbitrage using Pairs trading would be first to get the individual stocks within each basket using their symbols. Next, we isolate the adjusted price and we run a Johansen test to test for co-integration and obtain both cutoffs and eigenvectors. We use these eigenvectors to obtain the optimal linear combination of stocks by using the first eigenvector. Next, we run Augmented Dickey Fuller to test for stationarity and plot the combination of stocks to check if it looks stationary and cointegrated. Last, we standardize this using a z-score method by taking the combination minus the mean over the standard deviation. We graph lines in our plot, specifically add a red line at +2 standard deviations, and a green line -2 standard deviations. We also have a black line in the center that represents the mean, and we assume there will be mean reversion. This will symbolize to sell when the stock is above the red line and buy on the stock is below the red line, since these will be considered major deviations from the mean, rather than noise, and we expect the combination of stocks to eventually revert to the mean value or black line. 
+
+
+
+```{r, echo=FALSE, results = FALSE, warning= FALSE, message=FALSE}
+today <- as.Date("2023-12-12")
+months_prior <- today - (365*2)
+df <- read_csv("data/sp500.csv")
+```
+
+
+```{r, echo=FALSE, results = FALSE, warning= FALSE, message=FALSE}
+# Information Technology
+it_companies <- c("AAPL", "MSFT", "GOOGL", "META", "AMZN", "GOOG")
+
+# Health Care
+healthcare_companies <- c("JNJ", "PFE", "MRK", "ABBV", "LLY")
+
+# Financials
+financial_companies <- c("JPM", "BAC", "WFC", "C", "GS")
+
+# Consumer Discretionary
+discretionary_companies <- c("AMZN", "DIS", "NKE", "HD", "MCD")
+
+# Communication Services
+communication_companies <- c("FB", "GOOGL", "GOOG", "T", "VZ")
+
+# Industrials
+industrial_companies <- c("BA", "HON", "UNP", "MMM", "CAT")
+
+# Consumer Staples
+staples_companies <- c("PG", "KO", "WMT", "PEP", "COST")
+
+# Utilities
+utilities_companies <- c("NEE", "DUK", "D", "SO", "EXC")
+
+# Materials 
+materials_companies <- c("SHW", "LIN", "DOW", "APD", "ECL")
+
+# Real Estate
+real_estate_companies <- c("AMT", "SPG", "PLD", "EQIX", "CCI")
+
+# Energy 
+energy_companies <- c("XOM", "CVX", "COP", "KMI", "SLB")
+
+
 ```
 
 ```{r}
-today <- as.Date("2023-12-12")
-months_prior <- today - (365*5)
-yf_get_available_collections(print_description = FALSE)
-df <- yf_collection_get("DOW", first_date = months_prior, last_date = today)
-tick <- c("AAPL", "CRM", "CSCO", "IBM", "MSFT")
-filtered_df <- df %>%
-  filter(ticker == tick)
-reshaped_data <- pivot_wider(filtered_df, names_from = "ticker", values_from = "price_close")
-reshaped_data <- reshaped_data[, (ncol(reshaped_data) - 4):ncol(reshaped_data)]
+# Define stock symbols
+stock_symbols <- c("AAPL", "MSFT", "GOOGL", "META", "AMZN", "GOOG")
 
-date_column <- seq(as.Date("2023-01-01"), by = "1 day", length.out = 252)
-consolidated_data <- data.frame(Date = date_column)
+# Fetch stock data
+getSymbols(stock_symbols, from = "2021-12-12", to = "2023-12-12")
 
-# Loop over each column
-# for (col in colnames(reshaped_data)) {
-#   # Remove NAs from the current column
-#   current_column <- reshaped_data[, col]
-#   print(current_column)
-#   non_na_values <- na.omit(current_column)
-#   print(non_na_values)
-#   
-#   # Add the non-NA values to the consolidated data frame
-#   consolidated_data <- cbind(consolidated_data, non_na_values)
-# }
+# Extract adjusted close prices
+stock_prices <- do.call(cbind, lapply(stock_symbols, function(symbol) Cl(get(symbol))))
 
+# Perform Johansen cointegration test
+jotest <- ca.jo(stock_prices, type = "trace", K = 2, ecdet = "none", spec = "longrun")
+print("Summary of Johansen Cointegration Test:")
+print(summary(jotest))
+
+# Display test statistic cutoffs
+cutoffs <- data.frame(jotest@teststat, jotest@cval)
+colnames(cutoffs)  <- c("Test Statistic", "a = 0.10", "a = 0.05", "a = 0.01")
+kable(cutoffs)
+
+# Display V matrix
+kable(jotest@V)
+
+# Select the first cointegrating vector coefficients
+coefficients <- jotest@V[, 1]
+
+# Combine stocks with optimized coefficients
+combo <- stock_prices %*% coefficients
+plot(combo, type = "l", main = "Combined Series")
+
+# Augmented Dickey-Fuller test
+adf_test_result <- adf.test(combo)
+print("ADF Test Result:")
+print(adf_test_result)
+
+# Standardize the combined series
+standardized_combo <- (combo - mean(combo)) / sd(combo)
+plot(standardized_combo, type = "l", xlab = "Time", ylab = "Standardized Stock", main = "Plot of Standardized Series")
+
+# Add buy/sell signals
+abline(h = 2, col = "red", lty = 2)
+abline(h = -2, col = "green", lty = 2)
+abline(h = 0, col = "black", lty = 1)
+
+# Add legend
+legend("topright", legend = c("Sell", "Buy", "Mean"), col = c("red", "green", "black"), lty = c(2, 2, 1), lwd = c(2, 2, 2))
+```
+
+
+```{r}
+getSymbols("SPY", from="2021-12-12", to="2023-12-12")
+getSymbols("IVV", from="2021-12-12", to="2023-12-12")
+getSymbols("VOO", from="2021-12-12", to="2023-12-12")
+
+spyAdj = unclass(SPY$SPY.Adjusted)
+ivvAdj = unclass(IVV$IVV.Adjusted)
+vooAdj = unclass(VOO$VOO.Adjusted)
+
+jotest=ca.jo(data.frame(spyAdj,ivvAdj,vooAdj), type="trace", K=2, ecdet="none", spec="longrun")
+summary(jotest)
+cutoffs <- data.frame(jotest@teststat,jotest@cval)
+colnames(cutoffs)  <- c("Test Statistic", "a = 0.10","a = 0.05","a = 0.01")
+kable(cutoffs)
+kable(jotest@V)
+jotest@V[,1][2]
+
+combo = jotest@V[,1][1]*spyAdj + jotest@V[,1][2]*ivvAdj + jotest@V[,1][3]*vooAdj
+plot(combo, type="l")
+
+adf.test(combo)
+
+standardized_combo <- (combo - mean(combo)) / sd(combo)
+plot(standardized_combo, type="l", xlab = "Time", ylab = "Standardized Stock", main = "Plot of stock S over time")
+
+abline(h = 2, col = "red", lty = 2)
+abline(h = -2, col = "green", lty = 2)
+abline(h = 0, col = "black", lty = 1)
+legend("topright", legend = c("Sell", "Buy", "Mean"), col = c("red", "green", "black"), lty = c(2,2,1), lwd = c(2, 2, 2))
+```
+```{r}
+# Define stock symbols
+stock_symbols <- c("SHW", "LIN", "DOW", "APD", "ECL")
+
+# Fetch stock data
+getSymbols(stock_symbols, from = "2021-12-12", to = "2023-12-12")
+
+# Extract adjusted close prices
+stock_prices <- do.call(cbind, lapply(stock_symbols, function(symbol) Cl(get(symbol))))
+
+# Perform Johansen cointegration test
+jotest <- ca.jo(stock_prices, type = "trace", K = 2, ecdet = "none", spec = "longrun")
+print("Summary of Johansen Cointegration Test:")
+print(summary(jotest))
+
+# Display test statistic cutoffs
+cutoffs <- data.frame(jotest@teststat, jotest@cval)
+colnames(cutoffs)  <- c("Test Statistic", "a = 0.10", "a = 0.05", "a = 0.01")
+kable(cutoffs)
+
+# Display V matrix
+kable(jotest@V)
+
+# Select the first cointegrating vector coefficients
+coefficients <- jotest@V[, 1]
+
+# Combine stocks with optimized coefficients
+combo <- stock_prices %*% coefficients
+plot(combo, type = "l", main = "Combined Series")
+
+# Augmented Dickey-Fuller test
+adf_test_result <- adf.test(combo)
+print("ADF Test Result:")
+print(adf_test_result)
+
+# Standardize the combined series
+standardized_combo <- (combo - mean(combo)) / sd(combo)
+plot(standardized_combo, type = "l", xlab = "Time", ylab = "Standardized Stock", main = "Plot of Standardized Series")
+
+# Add buy/sell signals
+abline(h = 2, col = "red", lty = 2)
+abline(h = -2, col = "green", lty = 2)
+abline(h = 0, col = "black", lty = 1)
+
+# Add legend
+legend("topright", legend = c("Sell", "Buy", "Mean"), col = c("red", "green", "black"), lty = c(2, 2, 1), lwd = c(2, 2, 2))
+```
+
+```{r}
+# Define stock symbols
+stock_symbols <- c("XOM", "CVX", "COP", "KMI", "SLB")
+
+# Fetch stock data
+getSymbols(stock_symbols, from = "2021-12-12", to = "2023-12-12")
+
+# Extract adjusted close prices
+stock_prices <- do.call(cbind, lapply(stock_symbols, function(symbol) Cl(get(symbol))))
+
+# Perform Johansen cointegration test
+jotest <- ca.jo(stock_prices, type = "trace", K = 2, ecdet = "none", spec = "longrun")
+print("Summary of Johansen Cointegration Test:")
+print(summary(jotest))
+
+# Display test statistic cutoffs
+cutoffs <- data.frame(jotest@teststat, jotest@cval)
+colnames(cutoffs)  <- c("Test Statistic", "a = 0.10", "a = 0.05", "a = 0.01")
+kable(cutoffs)
+
+# Display V matrix
+kable(jotest@V)
+
+# Select the first cointegrating vector coefficients
+coefficients <- jotest@V[, 1]
+
+# Combine stocks with optimized coefficients
+combo <- stock_prices %*% coefficients
+plot(combo, type = "l", main = "Combined Series")
+
+# Augmented Dickey-Fuller test
+adf_test_result <- adf.test(combo)
+print("ADF Test Result:")
+print(adf_test_result)
+
+# Standardize the combined series
+standardized_combo <- (combo - mean(combo)) / sd(combo)
+plot(standardized_combo, type = "l", xlab = "Time", ylab = "Standardized Stock", main = "Plot of Standardized Series")
+
+# Add buy/sell signals
+abline(h = 2, col = "red", lty = 2)
+abline(h = -2, col = "green", lty = 2)
+abline(h = 0, col = "black", lty = 1)
+
+# Add legend
+legend("topright", legend = c("Sell", "Buy", "Mean"), col = c("red", "green", "black"), lty = c(2, 2, 1), lwd = c(2, 2, 2))
+```
+
+```{r}
+# Define stock symbols
+stock_symbols <- c("NEE", "DUK", "D", "SO", "EXC")
+
+# Fetch stock data
+getSymbols(stock_symbols, from = "2021-12-12", to = "2023-12-12")
+
+# Extract adjusted close prices
+stock_prices <- do.call(cbind, lapply(stock_symbols, function(symbol) Cl(get(symbol))))
+
+# Perform Johansen cointegration test
+jotest <- ca.jo(stock_prices, type = "trace", K = 2, ecdet = "none", spec = "longrun")
+print("Summary of Johansen Cointegration Test:")
+print(summary(jotest))
+
+# Display test statistic cutoffs
+cutoffs <- data.frame(jotest@teststat, jotest@cval)
+colnames(cutoffs)  <- c("Test Statistic", "a = 0.10", "a = 0.05", "a = 0.01")
+kable(cutoffs)
+
+# Display V matrix
+kable(jotest@V)
+
+# Select the first cointegrating vector coefficients
+coefficients <- jotest@V[, 1]
+
+# Combine stocks with optimized coefficients
+combo <- stock_prices %*% coefficients
+plot(combo, type = "l", main = "Combined Series")
+
+# Augmented Dickey-Fuller test
+adf_test_result <- adf.test(combo)
+print("ADF Test Result:")
+print(adf_test_result)
+
+# Standardize the combined series
+standardized_combo <- (combo - mean(combo)) / sd(combo)
+plot(standardized_combo, type = "l", xlab = "Time", ylab = "Standardized Stock", main = "Plot of Standardized Series")
+
+# Add buy/sell signals
+abline(h = 2, col = "red", lty = 2)
+abline(h = -2, col = "green", lty = 2)
+abline(h = 0, col = "black", lty = 1)
+
+# Add legend
+legend("topright", legend = c("Sell", "Buy", "Mean"), col = c("red", "green", "black"), lty = c(2, 2, 1), lwd = c(2, 2, 2))
 ```
 
 ```{r}
@@ -118,40 +429,6 @@ consolidated_data <- data.frame(Date = date_column)
 ```{r}
 unique(df$ticker)
 ```
-
-
-
-
-To clarify why some athletes appear but don't have score dots in an apparatus, that athlete was in the top 3 for another apparatus but not this current one. We keep them in just to show the "depth" of US gymnastics. A small number of total athletes that appear in the top 3 across all apparatus signals that most elite athletes are great at more than 1 event. 
-
-Taking a glance at the top US women, we can see that Simone Biles by far and away is the best American gymnast. That is quite unsurprising, given that she has the most gymnastics medals in the world and has consistently performed at an elite level in all events since her return to the sport. We can almost lock her in to make the Paris 2024 roster. Shilese Jones is the only gymnast have a higher mean score in an apparatus than Simone, specifically in the uneven bars (UB). She is someone to keep an eye out for, especially considering her recent all-around Bronze medal in the World Championships in October 2023. There are only six women to place in the top three across four apparatuses, a telling sign that the US women's team selections for Paris 2024 might be top heavy. 
-
-
-The US mens data is not quite as clear cut. There are a total of 11 American gymnasts who place in the top three of at least one of the six events. Asher Hong, Khoi Young, and Yul Moldauer place in the top three for three out of the events. Additionally, Brody Malone places in the top five for four out of six events, and Fred Richard most recently won bronze in the 2023 World Championships in the all round. Those are athletes we might expect to be placed into our USA mens team. 
-
-Our EDA is important as it allows us to sanity check our decision making, and will provide a sturdy foundation to any USA team lineups. 
-
-## Methodology
-
-### Breakdown of All Round + Specialists
-
-Treating this as an optimization problem where we are maximizing for total medal count, we have developed nuanced heuristics based off analyzing past Olympic gymnastic event results to pick our top five-person lineups. Historically, we've seen that the USA, along with most other participating countries, send a combination of all-round gymnasts and event specialists in a five person lineup. Specifically, the USA Olympic Team Selection Procedure outlines that the top two overall all-round gymnasts will automatically qualify for the squad and then the committee will select the other three to complement them. As discussed previously, a team can qualify a maximum of two individual gymnasts for each apparatus final as well as the all-around final. By this logic, it makes the most sense to send two all-around participants, while then having three specialists that would give that country the best shot at medaling in each individual apparatus. We wanted to mimic this approach, leading us to implement a two-tiered approach in our team selection process. First, we choose the top two overall all-round gymnasts and then we select three more gymnasts to round out the team in an attempt to maximize total medal count. 
-
-### Selection Method 
-In selecting the two all-round gymnasts, we will choose the two candidates that have the simulated highest total score average across all the events they have participated in leading up to the 2024 Olympics. Specifically, we weighted each score by artificially determining its importance by how recent it was and the “stage” of the competition in which it took place. We averaged the weighted scores across all the events a US gymnast has participated in. We then sum the average weighted scores in each apparatus to find a composite all-around score. 
-
-### Clutch Factor and Recency Considerations
-We chose to put weights on competition date and competition stage, specifically, because we believe a heavier weight should be placed on performances that take place under pressure in the final round and are more recent. This weighting is our attempt to measure the "clutch" factor and peak/prime performance of an individual athlete. The way our weights will work is we will duplicate rows of individual scores in the dataset given the assigned weight of that score. Competition date will be split into three categories by how recent the competition was: very recent (< 6 months), somewhat recent (6 - 18 months), not recent (18+ months). A multiplier of 1 will be given to not recent competitions, a multiplier of 2 to somewhat recent competitions and a multiplier of 3 for very recent competitions. As for the competition stage, there are two stages of competition: qualifiers and finals. Qualifying round scores will receive a multiplier of 1 and final round scores will receive a multiplier of 2. For example, a row containing a score from a not recent competition and qualifying round will remain as one singular row. However, a row containing a qualifying round score, but from very recent, will be multiplied three times to get three rows containing that score. If that score was instead from the finals, it would be multiplied 2 x 3 = 6 times. 
-
-Taking the average of an individual athlete's scores after this duplication process will give us a mean expected score on each apparatus for that athlete. Still, we are aware that each gymnast will have variance in their scores for each apparatus and we wanted to take that into account. For each USA gymnast, we will also develop an individual total score distribution from their weighted scores to account for the variance for each individual on each apparatus. A density plot of all the scores after the duplication process will give us a distribution centered around the mean score for an athlete as well as a variance.
-
-### Obtaining Medaling Probabilities
-Because the main goal of analysis is to determine the probability that an individual athlete medals, we also had to determine a way to get medal probabilities. We will accomplish this goal by determining medal thresholds, or thresholds necessary to achieve a certain medal. This will first require us to get a distribution of scores on individual apparatuses. We do this by creating a T-distribution from the top 24 individuals’ weighted mean score. Of the 24 people, however, no more than 4 competitors from the same country will be included in this distribution as a maximum of 4 individuals from each country can compete in qualifying for individual apparatuses. From the EDA, we saw that the distribution of scores was roughly normal, with somewhat of a tail towards the left side of the distribution, and somewhat fat tails. This inspired us to take the top 24 people(the lower scoring competitors would be dropped), and from there create a T-distribution to sample from in our simulation, since we have normality and somewhat fat tails.
-
-In order to find an individual's probability of earning a medal we will use a two step simulation and sampling process. We will simulate the following process 1,000 times. We first will sample from the distribution of the top 24 individuals 24 times. The top three scores of the 24 will represent the medal cutoffs with the 3rd highest sample score corresponding to a Bronze medal, the 2nd highest sample score corresponding to a Silver medal cutoff, and the highest sample score corresponding to a Gold medal cutoff. Because we are only worried about the placing of gymnasts from the USA, we will sample once from each of the top 8 USA gymnasts in each individual apparatus given their unique distributions. If that gymnast’s sampled score surpasses one of the cutoffs they will have ‘earned’ that medal for the given simulation. For example, if when sampling from the 24 gymnasts distribution we get medal cutoffs of 14.5, 14.8, and 14.9 and gymnast A gets a sampled score of 14.6 they will “earn” a Bronze medal. A sampled score of 14.81 would “earn” a Silver medal and a sampled score of 14.91 would “earn” a Gold medal. The only caveat is if multiple American gymnasts fall within the threshold for a certain medal. In that case the gymnasts would be ordered and the top score earns that medal and the next highest score would earn the next highest medal if it is available. We again simulate this two-tiered sampling approach 1,000 times to get each individual gymnast’s probability of getting a specific medal in a specific apparatus. We will use this approach for the individual all-around as well, and the two men and two women with the highest medal probabilities will be automatically selected for our team. The assumptions for our simulation require an adequate amount of repeating sampling. 1000 is surely enough for each athlete, who on average has 10-20 observations. We also assume that past performance is somewhat indicative of future performance.
-
-### Optimization
-From there we will use optimization to determine the 5-person lineup that maximizes expected medals earned including the team all-around medal. In determining the team all-around medal we will use a system identical to the way the Olympics will work in 2024. We will use many permutations of 3 specialists along with our two guaranteed all-around gymnasts and sample from every gymnast's individual distributions to get all-around scores. For each apparatus, the top three US gymnasts on the teams distributions will be sampled from (because only the top 3 gymnasts participate in the team all-around finals). The scores will be aggregated to get a total team all-around score. The same method of medal cutoffs will be used in the team all-around medal cutoffs, but using empirical team all-around score data to create a distribution to be sampled from. The 5-person team that maximizes total medals earned will be the team we recommend the USA send to Paris for the 2024 Olympics.
 
 
 ## Results 
@@ -217,6 +494,268 @@ The statistical analysis done in this paper gives one-of-many statistical ways t
 The potential for future research is endless. Our next step would be looking into optimizing lineups based on different criteria. That is, if a person wants to put a higher weighting on having the most consistent gymnasts or on the gymnast with highest potential than the model would be able to put out a lineup based on that criteria. Building out something more interactive for a final product is in the works. We will also look into more data related to the Olympics and gymnastics, and maybe interview a couple of professional gymnasts or their coaches to get further insight into Olympics level gymnastics. Finally, in the future we hope to build off similar tools to the ones created during this data analysis to predict or scout rising stars competing on the USA Elite pathway to keep an eye on for future Olympic cycles.
 
 ## Appendix A
+
+# Information Technology
+it_companies <- c("AAPL", "MSFT", "GOOGL", "META", "AMZN", "GOOG")
+
+# Health Care
+healthcare_companies <- c("JNJ", "PFE", "MRK", "ABBV", "LLY")
+
+# Financials
+financial_companies <- c("JPM", "BAC", "WFC", "C", "GS")
+
+# Consumer Discretionary
+discretionary_companies <- c("AMZN", "DIS", "NKE", "HD", "MCD")
+
+# Communication Services
+communication_companies <- c("FB", "GOOGL", "GOOG", "T", "VZ")
+
+# Industrials
+industrial_companies <- c("BA", "HON", "UNP", "MMM", "CAT")
+
+# Consumer Staples
+staples_companies <- c("PG", "KO", "WMT", "PEP", "COST")
+
+# Utilities
+utilities_companies <- c("NEE", "DUK", "D", "SO", "EXC")
+
+# Materials
+materials_companies <- c("SHW", "LIN", "DOW", "APD", "ECL")
+
+# Real Estate
+real_estate_companies <- c("AMT", "SPG", "PLD", "EQIX", "CCI")
+
+# Energy
+energy_companies <- c("XOM", "CVX", "COP", "KMI", "SLB")
+
+```{r}
+# Define stock symbols
+stock_symbols <- c("MSFT", "AAPL", "AMZN", "GOOG", "GOOGL", "META")
+
+# Fetch stock data
+getSymbols(stock_symbols, from = "2021-12-12", to = "2023-12-12")
+
+# Extract closing prices
+closing_prices <- do.call(cbind, lapply(stock_symbols, function(symbol) Cl(get(symbol))))
+
+# Plot all stock prices on one plot
+matplot(index(closing_prices), closing_prices, type = "l", col = 1:length(stock_symbols),
+        lty = 1, xlab = "Date", ylab = "Stock Price", main = "Stock Prices IT Companies",
+        legend.text = stock_symbols, col.axis = "black", col.main = "black")
+
+# Add legend
+legend("topright", legend = stock_symbols, col = 1:length(stock_symbols), lty = 1)
+```
+
+```{r}
+# Define stock symbols
+stock_symbols <- c("JNJ", "PFE", "MRK", "ABBV", "LLY")
+
+# Fetch stock data
+getSymbols(stock_symbols, from = "2021-12-12", to = "2023-12-12")
+
+# Extract closing prices
+closing_prices <- do.call(cbind, lapply(stock_symbols, function(symbol) Cl(get(symbol))))
+
+# Plot all stock prices on one plot
+matplot(index(closing_prices), closing_prices, type = "l", col = 1:length(stock_symbols),
+        lty = 1, xlab = "Date", ylab = "Stock Price", main = "Stock Prices Health Care",
+        legend.text = stock_symbols, col.axis = "black", col.main = "black")
+
+# Add legend
+legend("topright", legend = stock_symbols, col = 1:length(stock_symbols), lty = 1)
+```
+
+```{r}
+# Define stock symbols
+stock_symbols <- c("SPY", "IVV", "VOO")
+
+# Fetch stock data
+getSymbols(stock_symbols, from = "2021-12-12", to = "2023-12-12")
+
+# Extract closing prices
+closing_prices <- do.call(cbind, lapply(stock_symbols, function(symbol) Cl(get(symbol))))
+
+# Plot all stock prices on one plot
+matplot(index(closing_prices), closing_prices, type = "l", col = 1:length(stock_symbols),
+        lty = 1, xlab = "Date", ylab = "Stock Price", main = "Stock Prices ETFs",
+        legend.text = stock_symbols, col.axis = "black", col.main = "black")
+
+# Add legend
+legend("topright", legend = stock_symbols, col = 1:length(stock_symbols), lty = 1)
+```
+
+```{r}
+# Define stock symbols
+stock_symbols <- c("JPM", "BAC", "WFC", "C", "GS")
+
+# Fetch stock data
+getSymbols(stock_symbols, from = "2021-12-12", to = "2023-12-12")
+
+# Extract closing prices
+closing_prices <- do.call(cbind, lapply(stock_symbols, function(symbol) Cl(get(symbol))))
+
+# Plot all stock prices on one plot
+matplot(index(closing_prices), closing_prices, type = "l", col = 1:length(stock_symbols),
+        lty = 1, xlab = "Date", ylab = "Stock Price", main = "Stock Prices Financials",
+        legend.text = stock_symbols, col.axis = "black", col.main = "black")
+
+# Add legend
+legend("topright", legend = stock_symbols, col = 1:length(stock_symbols), lty = 1)
+```
+
+
+```{r}
+stock_symbols <- c("AMZN", "DIS", "NKE", "HD", "MCD")
+
+# Fetch stock data
+getSymbols(stock_symbols, from = "2021-12-12", to = "2023-12-12")
+
+# Extract closing prices
+closing_prices <- do.call(cbind, lapply(stock_symbols, function(symbol) Cl(get(symbol))))
+
+# Plot all stock prices on one plot
+matplot(index(closing_prices), closing_prices, type = "l", col = 1:length(stock_symbols),
+        lty = 1, xlab = "Date", ylab = "Stock Price", main = "Stock Prices Consumer Discretionary",
+        legend.text = stock_symbols, col.axis = "black", col.main = "black")
+
+# Add legend
+legend("topright", legend = stock_symbols, col = 1:length(stock_symbols), lty = 1)
+```
+
+```{r}
+# Define stock symbols
+stock_symbols <- c("META", "GOOGL", "GOOG", "T", "VZ")
+
+# Fetch stock data
+getSymbols(stock_symbols, from = "2021-12-12", to = "2023-12-12")
+
+# Extract closing prices
+closing_prices <- do.call(cbind, lapply(stock_symbols, function(symbol) Cl(get(symbol))))
+
+# Plot all stock prices on one plot
+matplot(index(closing_prices), closing_prices, type = "l", col = 1:length(stock_symbols),
+        lty = 1, xlab = "Date", ylab = "Stock Price", main = "Stock Prices Communication Services",
+        legend.text = stock_symbols, col.axis = "black", col.main = "black")
+
+# Add legend
+legend("topright", legend = stock_symbols, col = 1:length(stock_symbols), lty = 1)
+```
+
+```{r}
+# Define stock symbols
+stock_symbols <- c("BA", "HON", "UNP", "MMM", "CAT")
+
+# Fetch stock data
+getSymbols(stock_symbols, from = "2021-12-12", to = "2023-12-12")
+
+# Extract closing prices
+closing_prices <- do.call(cbind, lapply(stock_symbols, function(symbol) Cl(get(symbol))))
+
+# Plot all stock prices on one plot
+matplot(index(closing_prices), closing_prices, type = "l", col = 1:length(stock_symbols),
+        lty = 1, xlab = "Date", ylab = "Stock Price", main = "Stock Prices Industrials",
+        legend.text = stock_symbols, col.axis = "black", col.main = "black")
+
+# Add legend
+legend("topright", legend = stock_symbols, col = 1:length(stock_symbols), lty = 1)
+```
+
+```{r}
+# Define stock symbols
+stock_symbols <- c("PG", "KO", "WMT", "PEP", "COST")
+
+# Fetch stock data
+getSymbols(stock_symbols, from = "2021-12-12", to = "2023-12-12")
+
+# Extract closing prices
+closing_prices <- do.call(cbind, lapply(stock_symbols, function(symbol) Cl(get(symbol))))
+
+# Plot all stock prices on one plot
+matplot(index(closing_prices), closing_prices, type = "l", col = 1:length(stock_symbols),
+        lty = 1, xlab = "Date", ylab = "Stock Price", main = "Stock Prices Consumer Staples",
+        legend.text = stock_symbols, col.axis = "black", col.main = "black")
+
+# Add legend
+legend("topright", legend = stock_symbols, col = 1:length(stock_symbols), lty = 1)
+```
+
+```{r}
+# Define stock symbols
+stock_symbols <- c("SHW", "LIN", "DOW", "APD", "ECL")
+
+# Fetch stock data
+getSymbols(stock_symbols, from = "2021-12-12", to = "2023-12-12")
+
+# Extract closing prices
+closing_prices <- do.call(cbind, lapply(stock_symbols, function(symbol) Cl(get(symbol))))
+
+# Plot all stock prices on one plot
+matplot(index(closing_prices), closing_prices, type = "l", col = 1:length(stock_symbols),
+        lty = 1, xlab = "Date", ylab = "Stock Price", main = "Stock Prices Utilities",
+        legend.text = stock_symbols, col.axis = "black", col.main = "black")
+
+# Add legend
+legend("topright", legend = stock_symbols, col = 1:length(stock_symbols), lty = 1)
+```
+
+```{r}
+# Define stock symbols
+stock_symbols <- c("NEE", "DUK", "D", "SO", "EXC")
+
+# Fetch stock data
+getSymbols(stock_symbols, from = "2021-12-12", to = "2023-12-12")
+
+# Extract closing prices
+closing_prices <- do.call(cbind, lapply(stock_symbols, function(symbol) Cl(get(symbol))))
+
+# Plot all stock prices on one plot
+matplot(index(closing_prices), closing_prices, type = "l", col = 1:length(stock_symbols),
+        lty = 1, xlab = "Date", ylab = "Stock Price", main = "Stock Prices Materials",
+        legend.text = stock_symbols, col.axis = "black", col.main = "black")
+
+# Add legend
+legend("topright", legend = stock_symbols, col = 1:length(stock_symbols), lty = 1)
+```
+
+```{r}
+# Define stock symbols
+stock_symbols <- c("AMT", "SPG", "PLD", "EQIX", "CCI")
+
+# Fetch stock data
+getSymbols(stock_symbols, from = "2021-12-12", to = "2023-12-12")
+
+# Extract closing prices
+closing_prices <- do.call(cbind, lapply(stock_symbols, function(symbol) Cl(get(symbol))))
+
+# Plot all stock prices on one plot
+matplot(index(closing_prices), closing_prices, type = "l", col = 1:length(stock_symbols),
+        lty = 1, xlab = "Date", ylab = "Stock Price", main = "Stock Prices Real Estate",
+        legend.text = stock_symbols, col.axis = "black", col.main = "black")
+
+# Add legend
+legend("topright", legend = stock_symbols, col = 1:length(stock_symbols), lty = 1)
+```
+
+```{r}
+# Define stock symbols
+stock_symbols <- c("XOM", "CVX", "COP", "KMI", "SLB")
+
+# Fetch stock data
+getSymbols(stock_symbols, from = "2021-12-12", to = "2023-12-12")
+
+# Extract closing prices
+closing_prices <- do.call(cbind, lapply(stock_symbols, function(symbol) Cl(get(symbol))))
+
+# Plot all stock prices on one plot
+matplot(index(closing_prices), closing_prices, type = "l", col = 1:length(stock_symbols),
+        lty = 1, xlab = "Date", ylab = "Stock Price", main = "Stock Prices Energy",
+        legend.text = stock_symbols, col.axis = "black", col.main = "black")
+
+# Add legend
+legend("topright", legend = stock_symbols, col = 1:length(stock_symbols), lty = 1)
+```
+
 
 \newpage
 ### Works Cited
