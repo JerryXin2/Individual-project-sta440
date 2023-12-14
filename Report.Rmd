@@ -3,9 +3,12 @@ title: An introduction into Statistical Theory Methods related to Systematic Equ
   Futures Statistical Arbitrage
 author: "Jerry Xin"
 date: "2023-12-12"
-output:
-  pdf_document: default
-  html_document: default
+geometry: "left=2cm,right=2cm,top=1.5cm,bottom=1.5cm"
+output: 
+  pdf_document:
+    fig_caption: yes
+warnings: false
+fontsize: 10
 ---
 
 ```{r setup, include=FALSE}
@@ -32,13 +35,13 @@ The data is taken from Yahoo and looks at stock data from December 12th, 2021 to
 Keep in mind that we are not limited to the stocks that we select for the case study. In fact, we are encouraged to actively explore new combinations of ETFs, stocks, and other derivatives to find an optimal combination that you are okay with trading and holding as assets.
 
 ### Exploratory Data Analysis: Dow Jones Industrial Average Sectors
-Our exploratory data analysis starts by looking at the Dow Jones Industrial Average and looking at the top five companies that make up each sector in the Dow Jones. From there we applied the adjusted prices of each of the top five stocks in each sector over time for our two-year period. Looking at the top five stocks for each sector, we wanted to find sectors that were very correlated in movement with the top five stocks. This is through the eye test by looking to see if the stock patterns over the last 2 years look somewhat similar within upward moves lower moves and in general variability.
+Our exploratory data analysis starts by looking at the Dow Jones Industrial Average and looking at the top five companies that make up each sector in the Dow Jones. From there we applied the adjusted prices of each of the top five stocks in each sector over time for our two-year period. Looking at the top five stocks for each sector, we wanted to find sectors that were very correlated in movement with the top five stocks. This is through the eye test by looking to see if the stock patterns over the last 2 years look somewhat similar within upward moves lower moves and in general variability. The full EDA is in Appendix E.
 
 It's important that we take stocks that look to be very correlated with each other because we are trading these stocks against each other so if stocks within a certain industry are not correlated we will not do further analysis on these five stocks in a certain industry.It is also very important to note that using a foundational method such as the Dow Jones Industrial Average grouping of stocks into Industries is very important for pairs trading this is because we want stocks not just to be mathematically related but we also want some sort of casual or fundamental relationship between stocks are related. Thinking about statistically with the thousands of stocks that are out there they are bound to be too unrelated things such as a commodity and a random International stock that have the same price movement but we are very certain that these stocks will diverge in the future or they just happen to be by chance very very cointegrated in the time period that we are sampling for. 
 
 The purpose of the EDA is twofold. First, we get a general understanding of industry sectors through the Dow Jones and certain ways on how to group stocks in specific baskets. Next, we also look at the top five stocks for each predefined industry sector and look for possible cointegration relationships between the top five stocks. We can therefore narrow down industries and corresponding stocks that we select for further analysis. 
 
-We show a graph of our Eda below it relates the stocks prices of Microsoft, Apple, Amazon, Google(GOOGL), Google(GOOG), and Meta in a graph over 2022 and 2023. The stock symbols we want to obtain are below.
+We show a graph of our Eda below it relates the stocks prices of Microsoft, Apple, Amazon, Google(GOOGL), Google(GOOG), and Meta in a graph over 2022 and 2023. We can see relative similarity in the price movements for all these companies, and because they are all from big tech/ Information Technology, we know the price movement similarity isn't likely due to pure chance. We can also see that there is quite a bit of variance in the movement of prices, which if we are trying to perform arbitrage trading, is good because then there are more opportunities for "mismatched prices" that we can theoretically trade on for arbitrage. But more on this later in the methodology.
 
 ```{r, echo=FALSE, results = FALSE, warning= FALSE, message=FALSE}
 library(readr)
@@ -89,30 +92,11 @@ To test for stationarity, we want to use the augmented Dicky Fuller test. We wan
 
 ### Cointegration
 
-Something equally important we want to test for is co-integration. This concept is very unfamiliar to many in the statistics field but a somewhat comparable concept is correlation. However, we argue here that we want to test for cointegration over correlation. Correlations between stocks and finance have been notoriously known to be unstable and are known to be bad measures of similarity in the long run.
+Something equally important we want to test for is co-integration. What we really want is to measure is some sort of similarity measure to compare time series of prices for stocks. As we saw in the EDA of the top 5 stocks in an industry against each other, we want something that is that has similar price movements, and we define similar here as cointegrated. This concept is very unfamiliar to many in the statistics field but a somewhat comparable concept is correlation. However, we argue here that we want to test for cointegration over correlation. Correlations between stocks and finance have been notoriously known to be unstable and are known to be bad measures of similarity in the long run.
 
 The co-integration test procedure consists of using something called the Johansen test for cointegrating time series analysis. The basic idea of this test is that you test for a unit root in each component series individually unit using unit tests and if this unit cannot be rejected the next step is to test go integration among the components. Other versions of tests for co-integration can include Engle-Granger or Phillips-Ouliaris.
 
-Correlation and co-integration, while they can be theoretically similar, are very different concepts. The graph below demonstrates thi, as it is a graph of two time series that diverge. If one were to calculate the correlation between these two time series, it would be around 0.99. However if one were to calculate the co-integration between these values p-value would be not significant at p = 0.26. This means that these 2 series are definitely correlated, but not co-integrated.
-
-```{r, echo=FALSE, results = FALSE, warning= FALSE, message=FALSE}
-set.seed(123)  # Setting seed for reproducibility
-X_returns <- rnorm(100, mean = 1, sd = 1)
-Y_returns <- rnorm(100, mean = 2, sd = 1)
-
-X_diverging <- cumsum(X_returns)
-Y_diverging <- cumsum(Y_returns)
-
-# Create a data frame
-diverging_data <- data.frame(X = X_diverging, Y = Y_diverging)
-
-ggplot(diverging_data, aes(x = seq_along(X), y = X, color = "X")) +
-  geom_line() +
-  geom_line(aes(y = Y, color = "Y")) +
-  xlim(0, 99) +
-  labs(title = "Diverging Time Series", x = "Time", y = "Cumulative Returns") +
-  theme_minimal()
-```
+Correlation and co-integration, while they can be theoretically similar, are very different concepts. The graph in appendix F demonstrates this, as it is a graph of the cumulative sum of two normal random variables, one with a mean of 1 and the other with a mean of 2. If one were to calculate the correlation between these two time series, it would be around 0.99. However if one were to calculate the co-integration between these values p-value would be not significant at p = 0.26. This means that these 2 series are definitely correlated, but not co-integrated.
 
 ### Putting it all together
 
@@ -161,298 +145,100 @@ real_estate_companies <- c("AMT", "SPG", "PLD", "EQIX", "CCI")
 # Energy 
 energy_companies <- c("XOM", "CVX", "COP", "KMI", "SLB")
 
-
-```
-
-```{r}
-# Define stock symbols
-stock_symbols <- c("AAPL", "MSFT", "GOOGL", "META", "AMZN", "GOOG")
-
-# Fetch stock data
-getSymbols(stock_symbols, from = "2021-12-12", to = "2023-12-12")
-
-# Extract adjusted close prices
-stock_prices <- do.call(cbind, lapply(stock_symbols, function(symbol) Cl(get(symbol))))
-
-# Perform Johansen cointegration test
-jotest <- ca.jo(stock_prices, type = "trace", K = 2, ecdet = "none", spec = "longrun")
-print("Summary of Johansen Cointegration Test:")
-print(summary(jotest))
-
-# Display test statistic cutoffs
-cutoffs <- data.frame(jotest@teststat, jotest@cval)
-colnames(cutoffs)  <- c("Test Statistic", "a = 0.10", "a = 0.05", "a = 0.01")
-kable(cutoffs)
-
-# Display V matrix
-kable(jotest@V)
-
-# Select the first cointegrating vector coefficients
-coefficients <- jotest@V[, 1]
-
-# Combine stocks with optimized coefficients
-combo <- stock_prices %*% coefficients
-plot(combo, type = "l", main = "Combined Series")
-
-# Augmented Dickey-Fuller test
-adf_test_result <- adf.test(combo)
-print("ADF Test Result:")
-print(adf_test_result)
-
-# Standardize the combined series
-standardized_combo <- (combo - mean(combo)) / sd(combo)
-plot(standardized_combo, type = "l", xlab = "Time", ylab = "Standardized Stock", main = "Plot of Standardized Series")
-
-# Add buy/sell signals
-abline(h = 2, col = "red", lty = 2)
-abline(h = -2, col = "green", lty = 2)
-abline(h = 0, col = "black", lty = 1)
-
-# Add legend
-legend("topright", legend = c("Sell", "Buy", "Mean"), col = c("red", "green", "black"), lty = c(2, 2, 1), lwd = c(2, 2, 2))
-```
-
-
-```{r}
+getSymbols(it_companies, from = "2021-12-12", to = "2023-12-12")
 getSymbols("SPY", from="2021-12-12", to="2023-12-12")
 getSymbols("IVV", from="2021-12-12", to="2023-12-12")
 getSymbols("VOO", from="2021-12-12", to="2023-12-12")
 
-spyAdj = unclass(SPY$SPY.Adjusted)
-ivvAdj = unclass(IVV$IVV.Adjusted)
-vooAdj = unclass(VOO$VOO.Adjusted)
-
-jotest=ca.jo(data.frame(spyAdj,ivvAdj,vooAdj), type="trace", K=2, ecdet="none", spec="longrun")
-summary(jotest)
-cutoffs <- data.frame(jotest@teststat,jotest@cval)
-colnames(cutoffs)  <- c("Test Statistic", "a = 0.10","a = 0.05","a = 0.01")
-kable(cutoffs)
-kable(jotest@V)
-jotest@V[,1][2]
-
-combo = jotest@V[,1][1]*spyAdj + jotest@V[,1][2]*ivvAdj + jotest@V[,1][3]*vooAdj
-plot(combo, type="l")
-
-adf.test(combo)
-
-standardized_combo <- (combo - mean(combo)) / sd(combo)
-plot(standardized_combo, type="l", xlab = "Time", ylab = "Standardized Stock", main = "Plot of stock S over time")
-
-abline(h = 2, col = "red", lty = 2)
-abline(h = -2, col = "green", lty = 2)
-abline(h = 0, col = "black", lty = 1)
-legend("topright", legend = c("Sell", "Buy", "Mean"), col = c("red", "green", "black"), lty = c(2,2,1), lwd = c(2, 2, 2))
+getSymbols(materials_companies, from = "2021-12-12", to = "2023-12-12")
+getSymbols(energy_companies, from = "2021-12-12", to = "2023-12-12")
+getSymbols(utilities_companies, from = "2021-12-12", to = "2023-12-12")
 ```
-```{r}
-# Define stock symbols
-stock_symbols <- c("SHW", "LIN", "DOW", "APD", "ECL")
-
-# Fetch stock data
-getSymbols(stock_symbols, from = "2021-12-12", to = "2023-12-12")
-
-# Extract adjusted close prices
-stock_prices <- do.call(cbind, lapply(stock_symbols, function(symbol) Cl(get(symbol))))
-
-# Perform Johansen cointegration test
-jotest <- ca.jo(stock_prices, type = "trace", K = 2, ecdet = "none", spec = "longrun")
-print("Summary of Johansen Cointegration Test:")
-print(summary(jotest))
-
-# Display test statistic cutoffs
-cutoffs <- data.frame(jotest@teststat, jotest@cval)
-colnames(cutoffs)  <- c("Test Statistic", "a = 0.10", "a = 0.05", "a = 0.01")
-kable(cutoffs)
-
-# Display V matrix
-kable(jotest@V)
-
-# Select the first cointegrating vector coefficients
-coefficients <- jotest@V[, 1]
-
-# Combine stocks with optimized coefficients
-combo <- stock_prices %*% coefficients
-plot(combo, type = "l", main = "Combined Series")
-
-# Augmented Dickey-Fuller test
-adf_test_result <- adf.test(combo)
-print("ADF Test Result:")
-print(adf_test_result)
-
-# Standardize the combined series
-standardized_combo <- (combo - mean(combo)) / sd(combo)
-plot(standardized_combo, type = "l", xlab = "Time", ylab = "Standardized Stock", main = "Plot of Standardized Series")
-
-# Add buy/sell signals
-abline(h = 2, col = "red", lty = 2)
-abline(h = -2, col = "green", lty = 2)
-abline(h = 0, col = "black", lty = 1)
-
-# Add legend
-legend("topright", legend = c("Sell", "Buy", "Mean"), col = c("red", "green", "black"), lty = c(2, 2, 1), lwd = c(2, 2, 2))
-```
-
-```{r}
-# Define stock symbols
-stock_symbols <- c("XOM", "CVX", "COP", "KMI", "SLB")
-
-# Fetch stock data
-getSymbols(stock_symbols, from = "2021-12-12", to = "2023-12-12")
-
-# Extract adjusted close prices
-stock_prices <- do.call(cbind, lapply(stock_symbols, function(symbol) Cl(get(symbol))))
-
-# Perform Johansen cointegration test
-jotest <- ca.jo(stock_prices, type = "trace", K = 2, ecdet = "none", spec = "longrun")
-print("Summary of Johansen Cointegration Test:")
-print(summary(jotest))
-
-# Display test statistic cutoffs
-cutoffs <- data.frame(jotest@teststat, jotest@cval)
-colnames(cutoffs)  <- c("Test Statistic", "a = 0.10", "a = 0.05", "a = 0.01")
-kable(cutoffs)
-
-# Display V matrix
-kable(jotest@V)
-
-# Select the first cointegrating vector coefficients
-coefficients <- jotest@V[, 1]
-
-# Combine stocks with optimized coefficients
-combo <- stock_prices %*% coefficients
-plot(combo, type = "l", main = "Combined Series")
-
-# Augmented Dickey-Fuller test
-adf_test_result <- adf.test(combo)
-print("ADF Test Result:")
-print(adf_test_result)
-
-# Standardize the combined series
-standardized_combo <- (combo - mean(combo)) / sd(combo)
-plot(standardized_combo, type = "l", xlab = "Time", ylab = "Standardized Stock", main = "Plot of Standardized Series")
-
-# Add buy/sell signals
-abline(h = 2, col = "red", lty = 2)
-abline(h = -2, col = "green", lty = 2)
-abline(h = 0, col = "black", lty = 1)
-
-# Add legend
-legend("topright", legend = c("Sell", "Buy", "Mean"), col = c("red", "green", "black"), lty = c(2, 2, 1), lwd = c(2, 2, 2))
-```
-
-```{r}
-# Define stock symbols
-stock_symbols <- c("NEE", "DUK", "D", "SO", "EXC")
-
-# Fetch stock data
-getSymbols(stock_symbols, from = "2021-12-12", to = "2023-12-12")
-
-# Extract adjusted close prices
-stock_prices <- do.call(cbind, lapply(stock_symbols, function(symbol) Cl(get(symbol))))
-
-# Perform Johansen cointegration test
-jotest <- ca.jo(stock_prices, type = "trace", K = 2, ecdet = "none", spec = "longrun")
-print("Summary of Johansen Cointegration Test:")
-print(summary(jotest))
-
-# Display test statistic cutoffs
-cutoffs <- data.frame(jotest@teststat, jotest@cval)
-colnames(cutoffs)  <- c("Test Statistic", "a = 0.10", "a = 0.05", "a = 0.01")
-kable(cutoffs)
-
-# Display V matrix
-kable(jotest@V)
-
-# Select the first cointegrating vector coefficients
-coefficients <- jotest@V[, 1]
-
-# Combine stocks with optimized coefficients
-combo <- stock_prices %*% coefficients
-plot(combo, type = "l", main = "Combined Series")
-
-# Augmented Dickey-Fuller test
-adf_test_result <- adf.test(combo)
-print("ADF Test Result:")
-print(adf_test_result)
-
-# Standardize the combined series
-standardized_combo <- (combo - mean(combo)) / sd(combo)
-plot(standardized_combo, type = "l", xlab = "Time", ylab = "Standardized Stock", main = "Plot of Standardized Series")
-
-# Add buy/sell signals
-abline(h = 2, col = "red", lty = 2)
-abline(h = -2, col = "green", lty = 2)
-abline(h = 0, col = "black", lty = 1)
-
-# Add legend
-legend("topright", legend = c("Sell", "Buy", "Mean"), col = c("red", "green", "black"), lty = c(2, 2, 1), lwd = c(2, 2, 2))
-```
-
-```{r}
-# Load necessary library for coint function
-# library(urca)
-# 
-# find_cointegrated_pairs <- function(data) {
-#   n <- ncol(data)
-#   score_matrix <- matrix(0, nrow = n, ncol = n)
-#   pvalue_matrix <- matrix(1, nrow = n, ncol = n)
-#   keys <- colnames(data)
-#   pairs <- list()
-# 
-#   for (i in 1:(n - 1)) {
-#     for (j in (i + 1):n) {
-#       S1 <- data[, i]
-#       S2 <- data[, j]
-#       result <- cointegration.test(S1, S2)
-#       score <- result$statistic
-#       pvalue <- result$p.value
-#       score_matrix[i, j] <- score
-#       pvalue_matrix[i, j] <- pvalue
-#       if (pvalue < 0.05) {
-#         pairs <- c(pairs, list(c(keys[i], keys[j])))
-#       }
-#     }
-#   }
-# 
-#   return(list(score_matrix = score_matrix, pvalue_matrix = pvalue_matrix, pairs = pairs))
-# }
-# 
-# # Example usage
-# # Assuming your data is stored in a data frame named 'your_data'
-# result <- find_cointegrated_pairs(filtered_df$price_close)
-# print(result$score_matrix)
-# print(result$pvalue_matrix)
-# print(result$pairs)
-
-```
-
-
-```{r}
-unique(df$ticker)
-```
-
 
 ## Results 
 
-Our Results are compiled in the table below, with predicted individual medals. We used predicted total individual apparatus medals to select our teams, and categorized each competitor as either All Around or Specialist:
+### IT Companies
 
-```{r, echo=FALSE}
-results <- data.frame(
-  Category = c("All Around", "All Around", "Specialist", "Specialist", "Specialist", "Total Exp. Medals"),
-  USA_Women = c( "Simone Biles", "Shilese Jones", "Kaliya Lincoln", "Jade Carey", "Zoe Miller", ""),
-  EMC_Women = c('3.409', '0.466', '0.439','0.190','0.061','4.565'),
-  USA_Men = c("Paul Juda", "Fred Richard", "Donnell Whittenburg", "Khoi Young", "Curran Phillips", ""),
-  EMC_Men = c('0.663', '0.491', '0.264', '0.564', '0.310',"2.402")
-)
-kable(results, caption = "Proposed Paris 2024 USA Gymastics Team, with Expected Medal Counts (EMC)")
+Our results from the IT companies, the basket of stocks of which we are focusing on in this case study, are below. Further results from the other baskets of stocks- the ETFs, material companies, energy companies, and utility companies will be provided in the appendix but interpreted at the end of the results section.
+
+```{r, echo=FALSE, warning= FALSE, message=FALSE}
+# Extract adjusted close prices
+stock_prices <- do.call(cbind, lapply(it_companies, function(symbol) Cl(get(symbol))))
+
+# Perform Johansen cointegration test
+jotest <- ca.jo(stock_prices, type = "trace", K = 2, ecdet = "none", spec = "longrun")
+
+# Display test statistic cutoffs
+eigenval <- data.frame(t(jotest@lambda))
+colnames(eigenval) <- it_companies
+kable(eigenval, caption = "Eigenvalues")
+cutoffs <- data.frame(jotest@teststat, jotest@cval)
+colnames(cutoffs)  <- c("Test Statistic", "a = 0.10", "a = 0.05", "a = 0.01")
+kable(cutoffs, caption = "Test Statistic and Cutoff values Matrix")
+```
+First, we display the Eigenvalues in the first table, which correspond to each stock in our basket of stocks. In this case, we are looking at "AAPL": Apple, "MSFT": Microsoft, "GOOGL": Google(Voting rights), "META": Meta, "AMZN": Amazon, "GOOG": Google(No voting rights)
+
+Next, we address the issue of cointegration by displaying the results from the Johansen test in the second table below, with the second table showing the test statistic for the null hypotheses of r<=5, r<=4, r<=3, r<=2, r<=1, and r = 0. An exmaple of how to interpret one of these null hypotheses, for example r<=2, is that if we have sufficient evidence to suggest that we should reject the null, we have evidence to suggest that the rank of the eigenvalue matrix is 3, so NOT rank less than or equal to 3, and therefore we need a linear combination of 3 time series to form a stationary series. Additionally, we have the cutoff values of the test statistics for significance levels of alpha = 0.01, 0.05, and 0.10.
+
+At a significance level of a= 0.05, we can see that the test of R <= 1 is statistically significant, so we can reject the null hypothesis and this suggests that the rank is 2 or greater, on average
+
+```{r, echo=FALSE, warning= FALSE, message=FALSE}
+# Display V matrix
+kable(jotest@V, caption = "Eigenvector Matrix")
+
+# Select the first cointegrating vector coefficients
+coefficients <- jotest@V[, 1]
 ```
 
-To maximize for total medal count at the Paris 2024 Olympics, the USA Gymnastics team should select Simone Biles, Skye Blakely, Shilese Jones, Jade Carey, and Zoe Miller for the women’s team, and Fred Richard, Paul Juda, Donnell Whittenburg, Khoi Young, and Curran Phillips for the men’s team. Our total predicted medal counts are 4.565 individual medals for women, and 2.402 for the men’s team.
+Next, we display the third table of eignevectors, normalized to the first column. There are also known as the cointegration relations. To find the linear combination of time series to create a stationary series, we need to take the normalized eigenvector column corresponding to the stock with the largest eigenvalue, and use that as our linear combination for our stocks. For example, if that column was [1,3,-2], our linear combination would be 1 * stock A + 3 * stock B - 2 * stock C.
 
-Biles and Jones are the clear all-round selection, expecting to contribute 3.409 and 0.466 medals in total respectively, and having 99.9% and 23.9% to medal in the individual all-around finals. Onto the three specialists, Carey is an outstanding performer in Vault and Floor Exercise, having 19.0% and 19.9% to medal in those apparatus. Lincoln has 43.9% chance medaling in Floor Exercise. Miller is our last selection, and she brings value in the Uneven Bars, having a 6.1% percent of medaling there. 
+```{r, echo=FALSE, warning= FALSE, message=FALSE}
+# Combine stocks with optimized coefficients
+combo <- stock_prices %*% coefficients
+plot(combo, type = "l", main = "Combined Series")
 
-Juda and Richard were the all-round selections on the men's side. They have the highest chances of medaling in our individual all-round, with 5.1% and 4.9% respectively. The first specialist we choose was Khoi Young for his ability in vault and pommel horse, having 44.9% and 11.5% of medaling respectively. Then we choose veteran Whittenburg for his consistency on the still rings (SR), having the highest percentage chance to help the US medal in that apparatus with 26.4%. Lastly, we went with Curran Phillips for parallel bars as he had 26.3% to medal there.
+# Augmented Dickey-Fuller test
+adf_test_result <- adf.test(combo)
+adf_table <- data.frame(
+  TestStatistic = adf_test_result$statistic,
+  PValue = adf_test_result$p.value
+)
+kable(adf_table)
 
-Information on the percentages chances of medaling for each athlete can be in found in Appendix B. 
+# Standardize the combined series
+standardized_combo <- (combo - mean(combo)) / sd(combo)
+plot(standardized_combo, type = "l", xlab = "Time", ylab = "Standardized Stock", main = "Plot of Standardized Series")
+
+# Add buy/sell signals
+abline(h = 2, col = "red", lty = 2)
+abline(h = -2, col = "green", lty = 2)
+abline(h = 0, col = "black", lty = 1)
+
+# Add legend
+legend("topright", legend = c("Sell", "Buy", "Mean"), col = c("red", "green", "black"), lty = c(2, 2, 1), lwd = c(2, 2, 2))
+```
+
+Next, after we obtain the optimized linear combination of our six stocks, we combine these into a combined series and graph this combination as a function of time. After that we run the augmented Dickey-Fuller test to test for stationarity of our series. Our p-value for the Augmented Dickey-Fuller test is 0.01, which at a significant level of a = 0.05, we can reject the hypothesis of a unit root and suggest that we have a stationary series formed by our linear combination.
+
+Lastly, we standardize our combined series by simply using a z-score standardization method. We subtract the mean and divide by the standard deviation to obtain these scores. We then plot this standardized combined series as a Time series and add a red line for two standard deviations above the mean of 0 and green line for standard deviations below the mean of zero. We could also add a red or green line for 1 standard deviation above/below, as the number of standard deviation is not something that is necessarily fixed. The trading idea is that if the series is below the green line we would expect to buy in this case because we expected to revert back to approximately zero, the black line, and if the series is above the two line we would expect to sell in this case because we would also expected to revert to approximately, zero and we know that the movement above zero and below zero is not a not simply noise, because we are 2 standard deviations above it or to standard deviations below it. This indicates a market mispricing, and we can take advantage of this. Of course, we must use historical data to backtest if our linear combination is in fact stationary, and always aknowledge that past performance is never trul indicative of future performance, and it would be unreasonable to expect stationarity to hold in once-in-a-lifetime events that are unprecedented, such as a global pandemic like COVID-19.
+
+### ETF
+
+Interpreting our results for the ETF basket of 3 stocks is similar. The results are found in Appendix A.At a significance level of a= 0.05, we can see that the test of R <= 1 is statistically significant, so we can reject the null hypothesis and this suggests that the rank is 2 or greater, on average. After that we run the augmented Dickey-Fuller test to test for stationarity of our series. Our p-value for the Augmented Dickey-Fuller test is 0.01, which at a significant level of a = 0.05, we can reject the hypothesis of a unit root and suggest that we have a stationary series formed by our linear combination.
+
+### Materials
+
+Interpreting our results for the materials basket of 5 stocks is similar. The results are found in Appendix B. At a significance level of a= 0.05, we can see that none of the rank tests is statistically significant, so we do not have sufficient statistical evidence to reject any null hypotheses and this suggests that the rank is 0 or greater, on average. We should note that this gives us no extra useful information. After that we run the augmented Dickey-Fuller test to test for stationarity of our series. Our p-value for the Augmented Dickey-Fuller test is .0449943, which at a significant level of a = 0.05, we can reject the hypothesis of a unit root and suggest that we have a stationary series formed by our linear combination.
+
+The materials companies is a unique case where just because the companies pass the "eye-test" for cointegration/ general similar price movement patterns, we can see that the optimized combined series is by all means most likely not stationary. That is compeltely ok however, since as stock traders we are ok with not trading on this opportunity and looking for others that are most likely to be stationary and exhibit more mean reversion, and make us more money on average with lower risk/downside.
+
+### Energy
+
+Interpreting our results for the energy basket of 5 stocks is similar. The results are found in Appendix C. At a significance level of a= 0.05, we can see that none of the rank tests is statistically significant, so we do not have sufficient statistical evidence to reject any null hypotheses and this suggests that the rank is 0 or greater, on average. We should note that this gives us no extra useful information. After that we run the augmented Dickey-Fuller test to test for stationarity of our series. Our p-value for the Augmented Dickey-Fuller test is 0.01, which at a significant level of a = 0.05, we can reject the hypothesis of a unit root and suggest that we have a stationary series formed by our linear combination.
+
+### Utilities
+
+Interpreting our results for the utilities basket of 5 stocks is similar. The results are found in Appendix D. At a significance level of a= 0.05, we can see that none of the rank tests is statistically significant, so we do not have sufficient statistical evidence to reject any null hypotheses and this suggests that the rank is 0 or greater, on average. We should note that this gives us no extra useful information. After that we run the augmented Dickey-Fuller test to test for stationarity of our series. Our p-value for the Augmented Dickey-Fuller test is .0739892, which at a significant level of a = 0.05, we cannot reject the hypothesis of a unit root and therefore this suggests that we do not have a stationary series formed by our linear combination.
 
 ## Discussion
 
@@ -478,8 +264,6 @@ Hong and Richard are both skillful at 4 of the 6 events, but neither covers the 
 That gives a final five-man team of Frederick Richard, Asher Hong, Paul Juda, Khoi Young, and Donnell Whittenberg.
 
 
-
-
 ### Limitations
 There were also several limitations in our statistical methods. Firstly, we arbitrarily assigned weights to each of the decided ‘cutoffs’ it is more than possible that our weightings could result in the selection of a different team than if no weights were used. However, the weights used were for good reason given how recent performance affects future performance and our desire to pick more ‘clutch’ individuals. Another potential limitation in our method is when determining projected scores for athletes that have not competed in some time. Take Sunisa Lee as an example. Due to competing in college and injuries, Lee has very few scores since her Olympic performance in 2021. Because those performances account for so many of her competitions, her lower recent scores are severely overshadowed by her high, older scores. Even with weights her older scores account for a much greater proportion of her data. Thus in our methodology her projected score is unreasonably high for what recent scores suggest. This could remain true for many other athletes where their projected score does not resemble what their recent form might be. The final issue with our methodology and sampling in general is because there is technically no maximum score a gymnast could receive due to more challenging tricks being completed in every successive competition the sample could possibly get too high scores as there is no maximum cutoff in the distributions.
 
@@ -493,40 +277,187 @@ The statistical analysis done in this paper gives one-of-many statistical ways t
 
 The potential for future research is endless. Our next step would be looking into optimizing lineups based on different criteria. That is, if a person wants to put a higher weighting on having the most consistent gymnasts or on the gymnast with highest potential than the model would be able to put out a lineup based on that criteria. Building out something more interactive for a final product is in the works. We will also look into more data related to the Olympics and gymnastics, and maybe interview a couple of professional gymnasts or their coaches to get further insight into Olympics level gymnastics. Finally, in the future we hope to build off similar tools to the ones created during this data analysis to predict or scout rising stars competing on the USA Elite pathway to keep an eye on for future Olympic cycles.
 
-## Appendix A
+## Appendix A: ETFs
 
-# Information Technology
-it_companies <- c("AAPL", "MSFT", "GOOGL", "META", "AMZN", "GOOG")
+```{r , echo=FALSE, warning= FALSE, message=FALSE}
+spyAdj = unclass(SPY$SPY.Adjusted)
+ivvAdj = unclass(IVV$IVV.Adjusted)
+vooAdj = unclass(VOO$VOO.Adjusted)
 
-# Health Care
-healthcare_companies <- c("JNJ", "PFE", "MRK", "ABBV", "LLY")
+jotest=ca.jo(data.frame(spyAdj,ivvAdj,vooAdj), type="trace", K=2, ecdet="none", spec="longrun")
+eigenval <- data.frame(t(jotest@lambda))
+colnames(eigenval) <- c("SPY", "IVV", "VOO")
+kable(eigenval, caption = "Eigenvalues")
+cutoffs <- data.frame(jotest@teststat,jotest@cval)
+colnames(cutoffs)  <- c("Test Statistic", "a = 0.10","a = 0.05","a = 0.01")
+kable(cutoffs, caption = "Test Statistic and Cutoff values Matrix")
 
-# Financials
-financial_companies <- c("JPM", "BAC", "WFC", "C", "GS")
+# Display V matrix
+kable(jotest@V, caption = "Eigenvector Matrix")
 
-# Consumer Discretionary
-discretionary_companies <- c("AMZN", "DIS", "NKE", "HD", "MCD")
+combo = jotest@V[,1][1]*spyAdj + jotest@V[,1][2]*ivvAdj + jotest@V[,1][3]*vooAdj
+plot(combo, type="l")
 
-# Communication Services
-communication_companies <- c("FB", "GOOGL", "GOOG", "T", "VZ")
+adf_test_result <- adf.test(combo)
+adf_table <- data.frame(
+  TestStatistic = adf_test_result$statistic,
+  PValue = adf_test_result$p.value
+)
+kable(adf_table)
 
-# Industrials
-industrial_companies <- c("BA", "HON", "UNP", "MMM", "CAT")
+standardized_combo <- (combo - mean(combo)) / sd(combo)
+plot(standardized_combo, type="l", xlab = "Time", ylab = "Standardized Stock", main = "Plot of stock S over time")
 
-# Consumer Staples
-staples_companies <- c("PG", "KO", "WMT", "PEP", "COST")
+abline(h = 2, col = "red", lty = 2)
+abline(h = -2, col = "green", lty = 2)
+abline(h = 0, col = "black", lty = 1)
+legend("topright", legend = c("Sell", "Buy", "Mean"), col = c("red", "green", "black"), lty = c(2,2,1), lwd = c(2, 2, 2))
+```
 
-# Utilities
-utilities_companies <- c("NEE", "DUK", "D", "SO", "EXC")
+## Appendix B: Materials 
 
-# Materials
-materials_companies <- c("SHW", "LIN", "DOW", "APD", "ECL")
+```{r , echo=FALSE, warning= FALSE, message=FALSE}
+# Extract adjusted close prices
+stock_prices <- do.call(cbind, lapply(materials_companies, function(symbol) Cl(get(symbol))))
 
-# Real Estate
-real_estate_companies <- c("AMT", "SPG", "PLD", "EQIX", "CCI")
+# Perform Johansen cointegration test
+jotest <- ca.jo(stock_prices, type = "trace", K = 2, ecdet = "none", spec = "longrun")
 
-# Energy
-energy_companies <- c("XOM", "CVX", "COP", "KMI", "SLB")
+# Display test statistic cutoffs
+eigenval <- data.frame(t(jotest@lambda))
+colnames(eigenval) <- materials_companies
+kable(eigenval, caption = "Eigenvalues")
+cutoffs <- data.frame(jotest@teststat, jotest@cval)
+colnames(cutoffs)  <- c("Test Statistic", "a = 0.10", "a = 0.05", "a = 0.01")
+kable(cutoffs, caption = "Test Statistic and Cutoff values Matrix")
+
+# Display V matrix
+kable(jotest@V, caption = "Eigenvector Matrix")
+
+# Select the first cointegrating vector coefficients
+coefficients <- jotest@V[, 1]
+
+# Combine stocks with optimized coefficients
+combo <- stock_prices %*% coefficients
+plot(combo, type = "l", main = "Combined Series")
+
+# Augmented Dickey-Fuller test
+adf_test_result <- adf.test(combo)
+adf_table <- data.frame(
+  TestStatistic = adf_test_result$statistic,
+  PValue = adf_test_result$p.value
+)
+kable(adf_table)
+
+# Standardize the combined series
+standardized_combo <- (combo - mean(combo)) / sd(combo)
+plot(standardized_combo, type = "l", xlab = "Time", ylab = "Standardized Stock", main = "Plot of Standardized Series")
+
+# Add buy/sell signals
+abline(h = 2, col = "red", lty = 2)
+abline(h = -2, col = "green", lty = 2)
+abline(h = 0, col = "black", lty = 1)
+
+# Add legend
+legend("topright", legend = c("Sell", "Buy", "Mean"), col = c("red", "green", "black"), lty = c(2, 2, 1), lwd = c(2, 2, 2))
+```
+## Appendix C: Energy Companies
+
+```{r, echo=FALSE, warning= FALSE, message=FALSE}
+# Extract adjusted close prices
+stock_prices <- do.call(cbind, lapply(energy_companies, function(symbol) Cl(get(symbol))))
+
+# Perform Johansen cointegration test
+jotest <- ca.jo(stock_prices, type = "trace", K = 2, ecdet = "none", spec = "longrun")
+
+# Display test statistic cutoffs
+eigenval <- data.frame(t(jotest@lambda))
+colnames(eigenval) <- energy_companies
+kable(eigenval, caption = "Eigenvalues")
+cutoffs <- data.frame(jotest@teststat, jotest@cval)
+colnames(cutoffs)  <- c("Test Statistic", "a = 0.10", "a = 0.05", "a = 0.01")
+kable(cutoffs, caption = "Test Statistic and Cutoff values Matrix")
+
+# Display V matrix
+kable(jotest@V, caption = "Eigenvector Matrix")
+
+# Select the first cointegrating vector coefficients
+coefficients <- jotest@V[, 1]
+
+# Combine stocks with optimized coefficients
+combo <- stock_prices %*% coefficients
+plot(combo, type = "l", main = "Combined Series")
+
+# Augmented Dickey-Fuller test
+adf_test_result <- adf.test(combo)
+adf_table <- data.frame(
+  TestStatistic = adf_test_result$statistic,
+  PValue = adf_test_result$p.value
+)
+kable(adf_table)
+
+# Standardize the combined series
+standardized_combo <- (combo - mean(combo)) / sd(combo)
+plot(standardized_combo, type = "l", xlab = "Time", ylab = "Standardized Stock", main = "Plot of Standardized Series")
+
+# Add buy/sell signals
+abline(h = 2, col = "red", lty = 2)
+abline(h = -2, col = "green", lty = 2)
+abline(h = 0, col = "black", lty = 1)
+
+# Add legend
+legend("topright", legend = c("Sell", "Buy", "Mean"), col = c("red", "green", "black"), lty = c(2, 2, 1), lwd = c(2, 2, 2))
+```
+
+## Appendix D: Utility Companies
+
+```{r, echo=FALSE, warning= FALSE, message=FALSE}
+# Extract adjusted close prices
+stock_prices <- do.call(cbind, lapply(utilities_companies, function(symbol) Cl(get(symbol))))
+
+# Perform Johansen cointegration test
+jotest <- ca.jo(stock_prices, type = "trace", K = 2, ecdet = "none", spec = "longrun")
+
+# Display test statistic cutoffs
+eigenval <- data.frame(t(jotest@lambda))
+colnames(eigenval) <- utilities_companies
+kable(eigenval, caption = "Eigenvalues")
+cutoffs <- data.frame(jotest@teststat, jotest@cval)
+colnames(cutoffs)  <- c("Test Statistic", "a = 0.10", "a = 0.05", "a = 0.01")
+kable(cutoffs, caption = "Test Statistic and Cutoff values Matrix")
+
+# Display V matrix
+kable(jotest@V, caption = "Eigenvector Matrix")
+
+# Select the first cointegrating vector coefficients
+coefficients <- jotest@V[, 1]
+
+# Combine stocks with optimized coefficients
+combo <- stock_prices %*% coefficients
+plot(combo, type = "l", main = "Combined Series")
+
+# Augmented Dickey-Fuller test
+adf_test_result <- adf.test(combo)
+adf_table <- data.frame(
+  TestStatistic = adf_test_result$statistic,
+  PValue = adf_test_result$p.value
+)
+kable(adf_table)
+
+# Standardize the combined series
+standardized_combo <- (combo - mean(combo)) / sd(combo)
+plot(standardized_combo, type = "l", xlab = "Time", ylab = "Standardized Stock", main = "Plot of Standardized Series")
+
+# Add buy/sell signals
+abline(h = 2, col = "red", lty = 2)
+abline(h = -2, col = "green", lty = 2)
+abline(h = 0, col = "black", lty = 1)
+
+# Add legend
+legend("topright", legend = c("Sell", "Buy", "Mean"), col = c("red", "green", "black"), lty = c(2, 2, 1), lwd = c(2, 2, 2))
+```
+
+## Appendix E: EDA
 
 ```{r}
 # Define stock symbols
@@ -756,6 +687,25 @@ matplot(index(closing_prices), closing_prices, type = "l", col = 1:length(stock_
 legend("topright", legend = stock_symbols, col = 1:length(stock_symbols), lty = 1)
 ```
 
+## Appendix F: Graph Example of Cointegration vs Correlation
+```{r, echo=FALSE, results = FALSE, warning= FALSE, message=FALSE}
+set.seed(123)  # Setting seed for reproducibility
+X_returns <- rnorm(100, mean = 1, sd = 1)
+Y_returns <- rnorm(100, mean = 2, sd = 1)
+
+X_diverging <- cumsum(X_returns)
+Y_diverging <- cumsum(Y_returns)
+
+# Create a data frame
+diverging_data <- data.frame(X = X_diverging, Y = Y_diverging)
+
+ggplot(diverging_data, aes(x = seq_along(X), y = X, color = "Mean 1 Cumulative returns")) +
+  geom_line() +
+  geom_line(aes(y = Y, color = "Mean 2 Cumulative returns")) +
+  xlim(0, 99) +
+  labs(title = "Diverging Time Series", x = "Time", y = "Cumulative Returns") +
+  theme_minimal()
+```
 
 \newpage
 ### Works Cited
