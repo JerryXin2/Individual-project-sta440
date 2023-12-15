@@ -458,7 +458,7 @@ legend("topright", legend = c("Sell", "Buy", "Mean"), col = c("red", "green", "b
 
 ## Appendix E: EDA
 
-```{r}
+```{r, echo=FALSE, warning= FALSE}
 # Define stock symbols
 stock_symbols <- c("MSFT", "AAPL", "AMZN", "GOOG", "GOOGL", "META")
 
@@ -477,7 +477,7 @@ matplot(index(closing_prices), closing_prices, type = "l", col = 1:length(stock_
 legend("topright", legend = stock_symbols, col = 1:length(stock_symbols), lty = 1)
 ```
 
-```{r}
+```{r, echo=FALSE, warning= FALSE}
 # Define stock symbols
 stock_symbols <- c("JNJ", "PFE", "MRK", "ABBV", "LLY")
 
@@ -496,7 +496,7 @@ matplot(index(closing_prices), closing_prices, type = "l", col = 1:length(stock_
 legend("topright", legend = stock_symbols, col = 1:length(stock_symbols), lty = 1)
 ```
 
-```{r}
+```{r, echo=FALSE, warning= FALSE}
 # Define stock symbols
 stock_symbols <- c("SPY", "IVV", "VOO")
 
@@ -515,7 +515,7 @@ matplot(index(closing_prices), closing_prices, type = "l", col = 1:length(stock_
 legend("topright", legend = stock_symbols, col = 1:length(stock_symbols), lty = 1)
 ```
 
-```{r}
+```{r, echo=FALSE, warning= FALSE}
 # Define stock symbols
 stock_symbols <- c("JPM", "BAC", "WFC", "C", "GS")
 
@@ -535,7 +535,7 @@ legend("topright", legend = stock_symbols, col = 1:length(stock_symbols), lty = 
 ```
 
 
-```{r}
+```{r, echo=FALSE, warning= FALSE}
 stock_symbols <- c("AMZN", "DIS", "NKE", "HD", "MCD")
 
 # Fetch stock data
@@ -553,7 +553,7 @@ matplot(index(closing_prices), closing_prices, type = "l", col = 1:length(stock_
 legend("topright", legend = stock_symbols, col = 1:length(stock_symbols), lty = 1)
 ```
 
-```{r}
+```{r, echo=FALSE, warning= FALSE}
 # Define stock symbols
 stock_symbols <- c("META", "GOOGL", "GOOG", "T", "VZ")
 
@@ -572,7 +572,7 @@ matplot(index(closing_prices), closing_prices, type = "l", col = 1:length(stock_
 legend("topright", legend = stock_symbols, col = 1:length(stock_symbols), lty = 1)
 ```
 
-```{r}
+```{r, echo=FALSE, warning= FALSE}
 # Define stock symbols
 stock_symbols <- c("BA", "HON", "UNP", "MMM", "CAT")
 
@@ -591,7 +591,7 @@ matplot(index(closing_prices), closing_prices, type = "l", col = 1:length(stock_
 legend("topright", legend = stock_symbols, col = 1:length(stock_symbols), lty = 1)
 ```
 
-```{r}
+```{r, echo=FALSE, warning= FALSE}
 # Define stock symbols
 stock_symbols <- c("PG", "KO", "WMT", "PEP", "COST")
 
@@ -610,7 +610,7 @@ matplot(index(closing_prices), closing_prices, type = "l", col = 1:length(stock_
 legend("topright", legend = stock_symbols, col = 1:length(stock_symbols), lty = 1)
 ```
 
-```{r}
+```{r, echo=FALSE, warning= FALSE}
 # Define stock symbols
 stock_symbols <- c("SHW", "LIN", "DOW", "APD", "ECL")
 
@@ -629,7 +629,7 @@ matplot(index(closing_prices), closing_prices, type = "l", col = 1:length(stock_
 legend("topright", legend = stock_symbols, col = 1:length(stock_symbols), lty = 1)
 ```
 
-```{r}
+```{r, echo=FALSE, warning= FALSE}
 # Define stock symbols
 stock_symbols <- c("NEE", "DUK", "D", "SO", "EXC")
 
@@ -648,7 +648,7 @@ matplot(index(closing_prices), closing_prices, type = "l", col = 1:length(stock_
 legend("topright", legend = stock_symbols, col = 1:length(stock_symbols), lty = 1)
 ```
 
-```{r}
+```{r, echo=FALSE, warning= FALSE}
 # Define stock symbols
 stock_symbols <- c("AMT", "SPG", "PLD", "EQIX", "CCI")
 
@@ -667,7 +667,7 @@ matplot(index(closing_prices), closing_prices, type = "l", col = 1:length(stock_
 legend("topright", legend = stock_symbols, col = 1:length(stock_symbols), lty = 1)
 ```
 
-```{r}
+```{r, echo=FALSE, warning= FALSE}
 # Define stock symbols
 stock_symbols <- c("XOM", "CVX", "COP", "KMI", "SLB")
 
