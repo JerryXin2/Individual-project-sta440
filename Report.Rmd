@@ -1,6 +1,5 @@
 ---
-title: An introduction into Statistical Theory Methods related to Systematic Equity
-  Futures Statistical Arbitrage
+title: An Introduction Systematic Statistical Arbitrage Pairs Trading- Statistical Theory and Methods
 author: "Jerry Xin"
 date: "2023-12-12"
 geometry: "left=1cm,right=1cm,top=1.5cm,bottom=1.5cm"
